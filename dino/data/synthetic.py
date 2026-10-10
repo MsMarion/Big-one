@@ -67,13 +67,14 @@ def make_frame(rng, W, H):
     return rgb.astype(np.uint8), depth, sem, primary
 
 
-def generate(out, n_train, n_val, W=320, H=240, seed=0):
+def generate(out, n_train, n_val, W=320, H=240, seed=0, flat=False):
     rng = np.random.default_rng(seed)
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "classes.txt"), "w") as f:
         f.write("\n".join(CLASSES) + "\n")
     K = np.array([[0.9 * W, 0, W / 2], [0, 0.9 * W, H / 2], [0, 0, 1]])
-    for split, n in (("train", n_train), ("val", n_val)):
+    # flat: one unsplit "all/" folder, like a fresh camera dump (split later by the experiment)
+    for split, n in ((("all", n_train + n_val),) if flat else (("train", n_train), ("val", n_val))):
         d = os.path.join(out, split)
         for sub in ("rgb", "depth", "masks"):
             os.makedirs(os.path.join(d, sub), exist_ok=True)
@@ -90,7 +91,7 @@ def generate(out, n_train, n_val, W=320, H=240, seed=0):
             w.writerow(["id", "class"])
             w.writerows(rows)
         write_K(os.path.join(d, "cam_K.txt"), K)
-    print(f"synthetic: {n_train} train / {n_val} val frames, {len(CLASSES)} classes -> {out}")
+    print(f"synthetic: {n_train + n_val} frames ({'all/' if flat else 'train/val'}), {len(CLASSES)} classes -> {out}")
 
 
 def main():
@@ -100,8 +101,9 @@ def main():
     ap.add_argument("--n_val", type=int, default=60)
     ap.add_argument("--size", type=int, nargs=2, default=(320, 240), metavar=("W", "H"))
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--flat", action="store_true", help="write a single unsplit all/ folder")
     a = ap.parse_args()
-    generate(a.out, a.n_train, a.n_val, *a.size, a.seed)
+    generate(a.out, a.n_train, a.n_val, *a.size, a.seed, a.flat)
 
 
 if __name__ == "__main__":

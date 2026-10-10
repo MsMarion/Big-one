@@ -10,6 +10,22 @@ bash scripts/run.sh bash tests/smoke/test_pipeline.sh           # synthetic smok
 bash scripts/pull.sh _compare                                   # comparison table/plot -> results/_compare
 ```
 
+## New data → train → test benchmark → report (the main workflow)
+1. Copy `experiments/_template.yaml` to `experiments/<name>.yaml`. Set `name`, `data.root`, `tasks` and `backbones`.
+2. Run it, uploading a local folder if needed:
+   ```bash
+   bash scripts/experiment.sh experiments/<name>.yaml --data ./path/to/new_data
+   ```
+   This syncs code, uploads the data, auto-splits `all/` into train/val/test (if `data.split` is set), and validates the
+   dataset (stops with clear errors if masks or labels are wrong). It then trains each task × backbone, benchmarks on the held-out
+   **test** split (accuracy/mIoU, per-class, latency, VRAM), exports sample predictions, and scores any
+   `baseline_runs` (older models) on the same test set.
+3. Open the report in **JupyterLab → `dino/reports/<name>.html`** (it updates after every run; `index.html` lists all
+   experiments). It's also on the dashboard, or copy it locally with `bash scripts/pull_report.sh <name>`.
+
+Re-running the same file skips runs that already finished with identical settings, so you can add a backbone and re-run
+cheaply. `--force` retrains everything (and re-splits).
+
 ## Dashboard
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r dashboard/requirements.txt

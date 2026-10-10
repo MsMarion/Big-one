@@ -1,0 +1,31 @@
+# Copy this file to experiments/<name>.yaml for each new dataset, then:
+#   bash scripts/experiment.sh experiments/<name>.yaml --data <local folder>    # upload + run everything
+#   bash scripts/experiment.sh experiments/<name>.yaml                          # data already on the box
+# Report: JupyterLab -> dino/reports/<name>.html   (also listed on the local dashboard)
+
+name: mycam_v1                      # also the report name; runs are <name>__<task>__<backbone>
+description: "First capture session, 3 objects on the bench"
+
+data:
+  root: $DINO_DATA/mycam_v1         # where the data lives on the box (--data uploads here)
+  # Layout under root (see dino/data/datasets.py): classes.txt + per split rgb/ depth/ masks/ labels.csv cam_K.txt,
+  # or ImageFolder <split>/<class>/*.jpg for classification only.
+  split: {from: all, ratios: [0.7, 0.15, 0.15], seed: 0}   # delete this line if root already has train/ val/ test/
+  # train: train                    # split folder names (defaults shown)
+  # val: val
+  # test: test                      # held-out benchmark split; falls back to val if there is no test/
+
+tasks: [seg, cls]                   # seg needs masks/, cls needs labels.csv (or ImageFolder)
+backbones: [dinov2_s, dinov2_b]     # dinov2_{s,b,l,g}, dinov2_{s,b}_reg, dinov3_{s,b,l} (when weights are available)
+
+common:                             # applies to every run (same keys as configs/*.yaml)
+  train: {epochs: 10, unfreeze_last: 0, workers: 6}     # unfreeze_last: 0 = linear probe, N = finetune last N blocks
+cls:
+  img_size: [224, 224]              # multiples of 112 fit both DINOv2 (patch 14) and DINOv3 (patch 16)
+  train: {batch_size: 32, lr: 1.0e-3}
+seg:
+  img_size: [448, 448]
+  train: {batch_size: 16, lr: 3.0e-3}
+
+baseline_runs: []                   # existing runs to benchmark on this test split, e.g. [smoke_seg_dinov2_b]
+infer_samples: 12                   # test frames exported as predictions / shown in the report

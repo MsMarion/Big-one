@@ -102,6 +102,22 @@ def runs():
     return sorted(out, key=lambda r: r["mtime"], reverse=True)
 
 
+def experiments():
+    out = []
+    for st_path in glob.glob(os.path.join(ROOT, "experiments", "*", "status.json")):
+        try:
+            with open(st_path) as f:
+                st = json.load(f)
+        except (OSError, ValueError):
+            continue
+        name = os.path.basename(os.path.dirname(st_path))
+        out.append({"name": name, "state": st.get("state"), "started": st.get("started"), "runs": st.get("runs", {}),
+                    "error": st.get("error"), "report": os.path.exists(os.path.join(ROOT, "reports", name + ".html")),
+                    "mtime": os.path.getmtime(st_path)})
+    return sorted(out, key=lambda e: e["mtime"], reverse=True)
+
+
 if __name__ == "__main__":
     print(json.dumps({"time": time.time(), "host": os.uname().nodename, "gpu": gpu(), "container": container(),
-                      "processes": processes(), "jobs": jobs(), "runs": runs()}))
+                      "processes": processes(), "jobs": jobs(), "runs": runs(),
+                      "experiments": experiments()}))

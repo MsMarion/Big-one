@@ -156,11 +156,19 @@ def file(path: str):
                     headers={"Cache-Control": "max-age=30"})
 
 
+@app.get("/report/{name}")
+def report(name: str):
+    """Experiment report (static HTML written by dino.report), same file JupyterLab shows."""
+    if not SAFE_NAME.match(name):
+        raise HTTPException(400, "bad name")
+    return Response(ssh(f"cat /workspace/dino/reports/{name}.html", binary=True), media_type="text/html")
+
+
 @app.get("/api/remote-ping")
 def remote_ping():
     """Round trip: this PC -> ssh -> curl on the box -> FastAPI ping app on 127.0.0.1:8000."""
     t = time.perf_counter()
-    out = ssh("curl -s -m 5 127.0.0.1:8000/ping; echo; curl -s -m 20 127.0.0.1:8000/gpu", timeout=40)
+    out = ssh("curl -s -m 5 127.0.0.1:8000/ping; echo; curl -s -m 60 127.0.0.1:8000/gpu", timeout=80)
     ms = round((time.perf_counter() - t) * 1e3)
     parts = [p for p in out.splitlines() if p.strip()]
     try:

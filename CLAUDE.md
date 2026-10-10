@@ -25,12 +25,19 @@ ssh dino-box bash /workspace/dino/code/remote/bootstrap.sh             # re-run 
 ```
 Always `sync.sh` before running edited code remotely.
 
+## Experiments (main workflow: new data -> train -> test benchmark -> report)
+- `bash scripts/experiment.sh experiments/<name>.yaml [--data <local_dir>] [--force]` runs `dino.experiment` detached (tmux job `exp_<name>`).
+- Pipeline: optional split (`dino/data/split.py`, symlinks, stratified) → `dino/data/validate.py` → per task×backbone subprocess `dino.train` → `dino.evaluate --data_root --split test --out experiments/<name>/eval/<run>.json` → `dino.infer --limit` → baselines → `dino/report.py`.
+- Artifacts: `/workspace/dino/experiments/<name>/{experiment.yaml,dataset.json,status.json,results.json,configs/,eval/,experiment.log}`; runs are `runs/<name>__<task>__<backbone>`.
+- Report: `/workspace/dino/reports/<name>.html` is self-contained with no JS (JupyterLab's HTML viewer is sandboxed). Open it in JupyterLab at `dino/reports/`. Regenerate with `python -m dino.report <name>`.
+- Template: `experiments/_template.yaml`; worked example: `experiments/synthetic_newdata.yaml`.
+
 ## Dashboard (local, http://127.0.0.1:8765)
 - `.venv/Scripts/python -m uvicorn dashboard.app:app --port 8765` (or preview config `dashboard` in `.claude/launch.json`). Setup: `python -m venv .venv && .venv/Scripts/pip install -r dashboard/requirements.txt`.
 - Runs on this PC and pulls data over one persistent paramiko SSH connection (~0.5-1 s per call; a fresh `ssh` handshake costs ~3.3 s at 260 ms RTT). The box needs no open ports.
 - Shows GPU util/VRAM/power/temp (via `remote/status.py` → `/opt/venv/bin/amd-smi`), container CPU/RAM, /workspace disk, running processes, job logs, runs with metrics/logs/files, the FoundationPose mask gallery, and `runs/_compare/compare.png`.
 - **SSH port forwarding is disabled by the provider** (`AllowTcpForwarding no` in /tmp/amd-oneclick-sshd_config). Don't try to tunnel; don't change that config.
-- Remote FastAPI test app: `remote/ping_app.py` on 127.0.0.1:8000 (`bash scripts/bg.sh ping uvicorn remote.ping_app:app --host 127.0.0.1 --port 8000`). The dashboard reaches it via `ssh … curl`.
+- Remote FastAPI test app (GPU check runs in a subprocess; a resident HIP context spins a CPU core at 100%): `remote/ping_app.py` on 127.0.0.1:8000 (`bash scripts/bg.sh ping uvicorn remote.ping_app:app --host 127.0.0.1 --port 8000`). The dashboard reaches it via `ssh … curl`.
 - Only ports 22 (public 36168) and 8888 (provider JupyterLab, root_dir /workspace) listen on the box.
 
 ## Box facts

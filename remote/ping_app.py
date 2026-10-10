@@ -4,16 +4,30 @@ SSH port forwarding is disabled on this host, so this listens on 127.0.0.1 only 
 from the box itself (the local dashboard calls it via `ssh dino-box curl ...`).
 
     bash scripts/bg.sh ping uvicorn remote.ping_app:app --host 127.0.0.1 --port 8000
+
+The GPU check runs in a short-lived subprocess: holding a HIP context in this long-lived server
+leaves a runtime thread spinning at 100% CPU after the first call.
 """
+import json
 import os
 import socket
+import subprocess
+import sys
 import time
 
-import torch
 from fastapi import FastAPI
 
 app = FastAPI(title="dino-box ping")
 STARTED = time.time()
+
+GPU_CHECK = """
+import json, time, torch
+t = time.perf_counter()
+x = torch.randn(2048, 2048, device="cuda", dtype=torch.bfloat16)
+(x @ x).sum().item()
+print(json.dumps({"device": torch.cuda.get_device_name(), "torch": torch.__version__, "hip": torch.version.hip,
+                  "matmul_ms": round((time.perf_counter() - t) * 1e3, 2)}))
+"""
 
 
 @app.get("/ping")
@@ -24,8 +38,9 @@ def ping():
 @app.get("/gpu")
 def gpu():
     t = time.perf_counter()
-    x = torch.randn(2048, 2048, device="cuda", dtype=torch.bfloat16)
-    (x @ x).sum().item()
-    return {"device": torch.cuda.get_device_name(), "torch": torch.__version__, "hip": torch.version.hip,
-            "matmul_ms": round((time.perf_counter() - t) * 1e3, 2),
-            "mem_allocated_mb": round(torch.cuda.memory_allocated() / 1e6, 1)}
+    r = subprocess.run([sys.executable, "-c", GPU_CHECK], capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        return {"error": r.stderr[-500:]}
+    out = json.loads(r.stdout.strip().splitlines()[-1])
+    out["total_ms_incl_startup"] = round((time.perf_counter() - t) * 1e3)
+    return out

@@ -27,9 +27,14 @@ from .model import load_run
 
 
 def find_images(d):
+    """frames layout (rgb/), flat image folder, or ImageFolder (<class>/<img>, ids "class/stem")."""
     if os.path.isdir(os.path.join(d, "rgb")):
         return list_frames(d)
-    return sorted((os.path.splitext(f)[0], os.path.join(d, f)) for f in os.listdir(d) if f.lower().endswith(IMG_EXT))
+    flat = sorted((os.path.splitext(f)[0], os.path.join(d, f)) for f in os.listdir(d) if f.lower().endswith(IMG_EXT))
+    if flat:
+        return flat
+    return sorted((f"{c}/{os.path.splitext(f)[0]}", os.path.join(d, c, f)) for c in os.listdir(d)
+                  if os.path.isdir(os.path.join(d, c)) for f in os.listdir(os.path.join(d, c)) if f.lower().endswith(IMG_EXT))
 
 
 @torch.no_grad()
@@ -40,13 +45,14 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--target", help="seg: object class to write into masks/ (default: largest per frame)")
     ap.add_argument("--batch_size", type=int, default=16)
+    ap.add_argument("--limit", type=int, help="only the first N frames")
     a = ap.parse_args()
 
     model, cfg, classes = load_run(a.run)
     size = round_to_patch(cfg["img_size"], model.patch_size)
     tf = v2.Compose([v2.Resize(size, antialias=True), v2.ToDtype(torch.float32, scale=True),
                      v2.Normalize(IMAGENET_MEAN, IMAGENET_STD)])
-    frames = find_images(a.input)
+    frames = find_images(a.input)[:a.limit]
     os.makedirs(a.out, exist_ok=True)
     K_path = os.path.join(a.input, "cam_K.txt")
     K = read_K(K_path) if os.path.exists(K_path) else None
@@ -62,8 +68,8 @@ def main():
         if cfg["task"] == "cls":
             prob = logits.softmax(1)
             conf, pred = prob.max(1)
-            for (fid, _), c, p in zip(chunk, conf.tolist(), pred.tolist()):
-                rows.append({"id": fid, "pred": classes[p], "conf": round(c, 4)})
+            for (fid, path), c, p in zip(chunk, conf.tolist(), pred.tolist()):
+                rows.append({"id": fid, "pred": classes[p], "conf": round(c, 4), "path": path})
             continue
         for (fid, path), r, lg in zip(chunk, raw, logits):
             H, W = r.shape[-2:]

@@ -1,0 +1,19 @@
+# Example of the "new data" flow: an unsplit folder of frames -> split -> train -> test benchmark -> report.
+# Data: python -m dino.data.synthetic --flat --out $DINO_DATA/synthetic_newdata --seed 7 --n_train 320 --n_val 80
+name: synthetic_newdata
+description: "Smoke example: fresh unsplit synthetic RGB-D capture, benchmarked against the earlier smoke runs"
+data:
+  root: $DINO_DATA/synthetic_newdata
+  split: {from: all, ratios: [0.7, 0.15, 0.15], seed: 0}
+tasks: [seg, cls]
+backbones: [dinov2_s, dinov2_b]
+common:
+  train: {epochs: 4, workers: 6}
+cls:
+  img_size: [224, 224]
+  train: {batch_size: 32, lr: 1.0e-3}
+seg:
+  img_size: [336, 448]
+  train: {batch_size: 16, lr: 3.0e-3}
+baseline_runs: [smoke_seg_dinov2_b, smoke_cls_dinov2_b]
+infer_samples: 8

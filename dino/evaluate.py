@@ -1,15 +1,19 @@
 """Metrics + benchmarking. CLI re-evaluates a saved run (checkpoint round-trip) and adds latency:
 
     python -m dino.evaluate --run $DINO_RUNS/<name> [--split val]
+    # benchmark a run on another dataset's test split, result to a separate file:
+    python -m dino.evaluate --run $DINO_RUNS/<name> --data_root $DINO_DATA/new --split test --out eval.json
 """
 import argparse
+import json
 import os
+import sys
 import time
 
 import torch
 from torch.utils.data import DataLoader
 
-from .data.datasets import build_dataset, round_to_patch
+from .data.datasets import build_dataset, read_classes, round_to_patch
 from .model import load_run, write_json
 
 IGNORE = 255
@@ -86,24 +90,38 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
     ap.add_argument("--split", default="val")
+    ap.add_argument("--data_root", help="evaluate on this dataset instead of the one the run trained on")
+    ap.add_argument("--out", help="write the eval JSON here instead of merging into the run's metrics.json")
     ap.add_argument("--batch_size", type=int, default=32)
     a = ap.parse_args()
 
     model, cfg, classes = load_run(a.run)
+    if a.data_root:
+        cfg["data"]["root"] = a.data_root
+    data_classes = read_classes(cfg["data"]["root"], a.split)
+    if data_classes != classes:
+        sys.exit(f"[eval] class mismatch: run {cfg['name']} has {classes}, dataset has {data_classes}")
     cfg["data"]["_eval"] = a.split
     ds = build_dataset(cfg, "_eval", False, model.patch_size, classes)
     dl = DataLoader(ds, a.batch_size, num_workers=cfg["train"]["workers"])
+    t = time.perf_counter()
     metrics = compute_metrics(model, dl, cfg, classes)
+    eval_s = time.perf_counter() - t
     bench = benchmark(model, cfg)
     key = PRIMARY[cfg["task"]]
-    print(f"[eval] {cfg['name']} {a.split}: {key}={metrics[key]:.4f}  "
+    print(f"[eval] {cfg['name']} on {cfg['data']['root']}/{a.split} (n={len(ds)}): {key}={metrics[key]:.4f}  "
           f"bs1={bench['bs1']['ms_per_batch']:.1f}ms  bs32={bench['bs32']['imgs_per_s']:.0f} img/s")
 
-    import json
+    result = {"run": cfg["name"], "data_root": cfg["data"]["root"], "split": a.split, "n": len(ds),
+              "eval_s": eval_s, "metrics": metrics, "benchmark": bench}
+    if a.out:
+        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+        write_json(a.out, result)
+        return
     mpath = os.path.join(a.run, "metrics.json")
     with open(mpath) as f:
         m = json.load(f)
-    m["eval"] = {"split": a.split, "metrics": metrics, "benchmark": bench}
+    m["eval"] = result
     write_json(mpath, m)
 
 

@@ -100,6 +100,14 @@ pre { background: var(--surface-0); border: 1px solid var(--border); border-radi
   </section>
 
   <section class="card">
+    <h2>Experiments <span class="muted">(bash scripts/experiment.sh experiments/&lt;name&gt;.yaml)</span></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Experiment</th><th>State</th><th>Runs</th><th>Started</th><th>Report</th></tr></thead>
+      <tbody id="exps"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
     <h2>Runs</h2>
     <div class="scroll"><table>
       <thead><tr><th>Run</th><th>Task</th><th>Backbone</th><th>Best</th><th>Val history</th><th>Infer bs1</th><th>Peak VRAM</th><th>Train time</th><th>Updated</th></tr></thead>
@@ -226,6 +234,17 @@ function render(d) {
       d.jobs.map(j => `<button data-job="${esc(j.name)}" style="margin:0 6px 6px 0">${esc(j.name)} <span class="muted">${ago(j.mtime)}</span></button>`).join("")
     : "";
   document.querySelectorAll("[data-job]").forEach(b => b.onclick = () => showJob(b.dataset.job));
+
+  const stLevel = { done: "good", running: "warning", failed: "critical" };
+  $("#exps").innerHTML = (d.experiments || []).map(x => {
+    const runs = Object.entries(x.runs || {});
+    const done = runs.filter(([, v]) => v === "ok").length;
+    return `<tr><td>${esc(x.name)}</td><td>${statusBadge(stLevel[x.state] || "warning", x.state || "?")}</td>` +
+      `<td style="white-space:normal">${done}/${runs.length} ok` + (runs.some(([, v]) => v !== "ok") ? ` · <span class="muted">${runs.filter(([, v]) => v !== "ok").map(([k, v]) => esc(k.split("__").slice(1).join(" ")) + ": " + esc(v)).join(", ")}</span>` : "") +
+      (x.error ? `<div style="color:var(--critical)">${esc(x.error)}</div>` : "") + `</td>` +
+      `<td>${x.started ? ago(x.started) : "–"}</td><td>${x.report ? `<a href="/report/${encodeURIComponent(x.name)}" target="_blank" rel="noopener" style="color:var(--series-1)">open report ↗</a>` : "–"}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">No experiments yet.</td></tr>`;
+  document.querySelectorAll("#exps tr").forEach(tr => tr.style.cursor = "default");
 
   $("#runs").innerHTML = d.runs.map(r => r.in_progress
     ? `<tr data-run="${esc(r.name)}" class="${selected === r.name ? "sel" : ""}"><td>${esc(r.name)}</td><td colspan="7" class="muted">in progress…</td><td>${ago(r.mtime)}</td></tr>`
