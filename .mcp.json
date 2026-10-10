@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "dino-box": {
+      "command": "cmd",
+      "args": [
+        "/c", "npx", "-y", "ssh-mcp@2.18.0", "--",
+        "--host=36.150.116.206",
+        "--port=36168",
+        "--user=root",
+        "--key=C:/Users/Dawn/.ssh/id_ed25519",
+        "--group=dev",
+        "--workdir=/workspace/dino/code",
+        "--timeout=1800000",
+        "--maxChars=none"
+      ]
+    }
+  }
+}

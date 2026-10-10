@@ -1,0 +1,8 @@
+# torch / torchvision are NOT listed: reuse the ROCm build from /opt/venv (system-site-packages).
+transformers
+safetensors
+huggingface_hub
+pyyaml
+scikit-learn
+tqdm
+tabulate

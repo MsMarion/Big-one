@@ -1,0 +1,8 @@
+# Template for real RGB-D data: partial finetune of the last 4 blocks.
+# Data in the standard frames layout (see dino/data/datasets.py), e.g. pushed with scripts/push_data.sh.
+name: seg_mycam_dinov2_b_ft4
+task: seg
+backbone: dinov2_b
+img_size: [448, 560]
+data: {root: $DINO_DATA/mycam, train: train, val: val}
+train: {epochs: 30, batch_size: 8, lr: 1.0e-3, backbone_lr_mult: 0.05, unfreeze_last: 4, workers: 8, amp: bf16}

@@ -1,0 +1,8 @@
+# Classification linear probe on the synthetic RGB-D set.
+# Swap backbone / epochs without editing:  --set backbone=dinov2_b train.epochs=3 name=smoke_cls_dinov2_b
+name: smoke_cls_dinov2_s
+task: cls
+backbone: dinov2_s
+img_size: [224, 224]
+data: {root: $DINO_DATA/synthetic, train: train, val: val}
+train: {epochs: 3, batch_size: 32, lr: 1.0e-3, unfreeze_last: 0, workers: 4, amp: bf16, log_every: 5}

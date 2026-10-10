@@ -1,0 +1,111 @@
+"""Metrics + benchmarking. CLI re-evaluates a saved run (checkpoint round-trip) and adds latency:
+
+    python -m dino.evaluate --run $DINO_RUNS/<name> [--split val]
+"""
+import argparse
+import os
+import time
+
+import torch
+from torch.utils.data import DataLoader
+
+from .data.datasets import build_dataset, round_to_patch
+from .model import load_run, write_json
+
+IGNORE = 255
+
+
+def autocast(cfg):
+    return torch.autocast("cuda", dtype=torch.bfloat16, enabled=cfg["train"]["amp"] == "bf16")
+
+
+@torch.no_grad()
+def confusion(model, loader, n, cfg, device="cuda"):
+    conf = torch.zeros(n * n, dtype=torch.long, device=device)
+    model.eval()
+    for x, y in loader:
+        x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+        with autocast(cfg):
+            pred = model(x).argmax(1)
+        keep = y != IGNORE
+        conf += torch.bincount(n * y[keep] + pred[keep], minlength=n * n)
+    return conf.view(n, n).cpu()
+
+
+def cls_metrics(conf, classes):
+    tp, support = conf.diag().float(), conf.sum(1).float()
+    per = (tp / support.clamp(min=1)).tolist()
+    return {"acc": (tp.sum() / support.sum()).item(), "macro_acc": sum(per) / len(per),
+            "per_class_acc": dict(zip(classes, per)), "confusion": conf.tolist()}
+
+
+def seg_metrics(conf, classes):
+    names = ["background"] + list(classes)
+    tp = conf.diag().float()
+    union = conf.sum(0).float() + conf.sum(1).float() - tp
+    present = union > 0
+    iou = tp / union.clamp(min=1)
+    fg = present.clone()
+    fg[0] = False
+    return {"miou": iou[present].mean().item(), "miou_fg": iou[fg].mean().item() if fg.any() else 0.0,
+            "pixel_acc": (tp.sum() / conf.sum()).item(), "per_class_iou": dict(zip(names, iou.tolist()))}
+
+
+def compute_metrics(model, loader, cfg, classes, device="cuda"):
+    if cfg["task"] == "cls":
+        return cls_metrics(confusion(model, loader, len(classes), cfg, device), classes)
+    return seg_metrics(confusion(model, loader, len(classes) + 1, cfg, device), classes)
+
+
+PRIMARY = {"cls": "acc", "seg": "miou"}
+
+
+@torch.no_grad()
+def benchmark(model, cfg, device="cuda", batch_sizes=(1, 32), iters=20):
+    size = round_to_patch(cfg["img_size"], model.patch_size)
+    model.eval()
+    out = {"img_size": size}
+    for bs in batch_sizes:
+        x = torch.randn(bs, 3, *size, device=device)
+        torch.cuda.reset_peak_memory_stats()
+        with autocast(cfg):
+            for _ in range(5):
+                model(x)
+            torch.cuda.synchronize()
+            t = time.perf_counter()
+            for _ in range(iters):
+                model(x)
+            torch.cuda.synchronize()
+        dt = (time.perf_counter() - t) / iters
+        out[f"bs{bs}"] = {"ms_per_batch": dt * 1e3, "imgs_per_s": bs / dt,
+                          "peak_vram_gb": torch.cuda.max_memory_allocated() / 1e9}
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--run", required=True)
+    ap.add_argument("--split", default="val")
+    ap.add_argument("--batch_size", type=int, default=32)
+    a = ap.parse_args()
+
+    model, cfg, classes = load_run(a.run)
+    cfg["data"]["_eval"] = a.split
+    ds = build_dataset(cfg, "_eval", False, model.patch_size, classes)
+    dl = DataLoader(ds, a.batch_size, num_workers=cfg["train"]["workers"])
+    metrics = compute_metrics(model, dl, cfg, classes)
+    bench = benchmark(model, cfg)
+    key = PRIMARY[cfg["task"]]
+    print(f"[eval] {cfg['name']} {a.split}: {key}={metrics[key]:.4f}  "
+          f"bs1={bench['bs1']['ms_per_batch']:.1f}ms  bs32={bench['bs32']['imgs_per_s']:.0f} img/s")
+
+    import json
+    mpath = os.path.join(a.run, "metrics.json")
+    with open(mpath) as f:
+        m = json.load(f)
+    m["eval"] = {"split": a.split, "metrics": metrics, "benchmark": bench}
+    write_json(mpath, m)
+
+
+if __name__ == "__main__":
+    main()
