@@ -26,6 +26,13 @@ bash scripts/pull.sh _compare                                   # comparison tab
 Re-running the same file skips runs that already finished with identical settings, so you can add a backbone and re-run
 cheaply. `--force` retrains everything (and re-splits).
 
+## Feature caching
+With a frozen backbone (the default linear-probe setup), backbone features are computed once and cached on the
+box's scratch disk. Later epochs, re-runs and other heads on the same data skip image decoding and the backbone
+entirely. Segmentation training on the example data dropped from 99 s to 12.5 s with the same accuracy. It switches
+off automatically when finetuning (`unfreeze_last > 0`); force it off with `train.cache_features: false` if you want
+full augmentation.
+
 ## Dashboard
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r dashboard/requirements.txt

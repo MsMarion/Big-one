@@ -14,7 +14,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from .config import load_config, runs_root
-from .data.datasets import build_dataset, read_classes
+from .data.datasets import build_dataset, read_classes, round_to_patch
+from .features import batch_collate, build_or_load, cache_enabled
 from .evaluate import IGNORE, PRIMARY, autocast, compute_metrics
 from .model import build_model, save_checkpoint, write_json, write_yaml
 
@@ -42,12 +43,27 @@ def main():
     classes = read_classes(cfg["data"]["root"], cfg["data"]["train"])
     model = build_model(cfg, classes).to(device)
     ps = model.patch_size
-    train_ds = build_dataset(cfg, "train", True, ps, classes)
-    val_ds = build_dataset(cfg, "val", False, ps, classes)
+    use_cache = cache_enabled(cfg)
+    cache_info = None
+    if use_cache:
+        # backbone runs once per (backbone, split, img_size, files); heads then train on cached features
+        train_ds, ci_tr = build_or_load(cfg, "train", model, classes, flip=tc.get("cache_flip", True), log=log)
+        val_ds, ci_va = build_or_load(cfg, "val", model, classes, flip=False, log=log)
+        cache_info = {"train": ci_tr, "val": ci_va}
+        out_size = round_to_patch(cfg["img_size"], ps)
+        forward = lambda f: model.forward_features(f, out_size)
+        workers = 0  # cached tensors are in RAM / memory-mapped; no decoding left to parallelize
+        collate = batch_collate  # CachedFeatures.__getitems__ already returns stacked batches
+    else:
+        train_ds = build_dataset(cfg, "train", True, ps, classes)
+        val_ds = build_dataset(cfg, "val", False, ps, classes)
+        forward = model
+        workers = tc["workers"]
+        collate = None
     bs = min(tc["batch_size"], len(train_ds))
-    train_dl = DataLoader(train_ds, bs, shuffle=True, drop_last=True, num_workers=tc["workers"],
-                          pin_memory=True, persistent_workers=tc["workers"] > 0)
-    val_dl = DataLoader(val_ds, tc["batch_size"], num_workers=tc["workers"], pin_memory=True)
+    train_dl = DataLoader(train_ds, bs, shuffle=True, drop_last=True, num_workers=workers, collate_fn=collate,
+                          pin_memory=True, persistent_workers=workers > 0)
+    val_dl = DataLoader(val_ds, tc["batch_size"], num_workers=workers, collate_fn=collate, pin_memory=True)
 
     head_p = [p for n, p in model.named_parameters() if p.requires_grad and n.startswith("head.")]
     bb_p = [p for n, p in model.named_parameters() if p.requires_grad and not n.startswith("head.")]
@@ -65,12 +81,13 @@ def main():
     n_total = sum(p.numel() for p in model.parameters())
     log(f"[train] {cfg['name']}: task={cfg['task']} backbone={cfg['backbone']} patch={ps} "
         f"classes={len(classes)} train={len(train_ds)} val={len(val_ds)} "
-        f"trainable={n_train/1e6:.3f}M / {n_total/1e6:.1f}M  device={torch.cuda.get_device_name()}")
+        f"trainable={n_train/1e6:.3f}M / {n_total/1e6:.1f}M  cache={'on' if use_cache else 'off'}  "
+        f"device={torch.cuda.get_device_name()}")
 
     key = PRIMARY[cfg["task"]]
     best, history, step = -1.0, [], 0
     torch.cuda.reset_peak_memory_stats()
-    t_start = time.perf_counter()
+    t_start = time.perf_counter() - sum(c["build_s"] for c in (cache_info or {}).values())  # count cache build
     imgs_seen, t_train = 0, 0.0
     for epoch in range(tc["epochs"]):
         model.train()
@@ -80,7 +97,7 @@ def main():
         for i, (x, y) in enumerate(train_dl):
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
             with autocast(cfg):
-                loss = loss_fn(model(x).float(), y)
+                loss = loss_fn(forward(x).float(), y)
             opt.zero_grad(set_to_none=True)
             loss.backward()
             opt.step()
@@ -93,7 +110,7 @@ def main():
         torch.cuda.synchronize()
         t_train += time.perf_counter() - t0
 
-        m = compute_metrics(model, val_dl, cfg, classes, device)
+        m = compute_metrics(model, val_dl, cfg, classes, device, forward)
         ep = {"epoch": epoch, "train_loss": run_loss / len(train_dl), **{k: v for k, v in m.items() if isinstance(v, float)}}
         history.append(ep)
         tag = ""
@@ -109,6 +126,7 @@ def main():
         "history": history, "train_imgs_per_s": imgs_seen / max(t_train, 1e-9),
         "train_time_s": time.perf_counter() - t_start, "peak_vram_gb": torch.cuda.max_memory_allocated() / 1e9,
         "trainable_params": n_train, "total_params": n_total, "n_train": len(train_ds), "n_val": len(val_ds),
+        "cache": cache_info,
     }
     write_json(os.path.join(run_dir, "metrics.json"), out)
     log(f"[done] best val {key} {best:.4f}  ({out['train_imgs_per_s']:.0f} img/s train, "

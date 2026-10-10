@@ -32,6 +32,12 @@ Always `sync.sh` before running edited code remotely.
 - Report: `/workspace/dino/reports/<name>.html` is self-contained with no JS (JupyterLab's HTML viewer is sandboxed). Open it in JupyterLab at `dino/reports/`. Regenerate with `python -m dino.report <name>`.
 - Template: `experiments/_template.yaml`; worked example: `experiments/synthetic_newdata.yaml`.
 
+## Feature cache (dino/features.py)
+- On by default whenever the backbone is frozen (`train.cache_features: auto`, `unfreeze_last: 0`). The backbone runs once per (backbone, split, img_size, file signature), and heads train on cached fp16 features: ~8x faster seg training, identical metrics (verified: cached-trained head evaluated on raw images matches within bf16 noise).
+- Stored in `/root/scratch/featcache/<backbone>/<hash>/` (ephemeral disk; rebuilt automatically after a reset or any data change). Seg costs ~1.3 MB/image for ViT-B at 336x448; classification is negligible.
+- With the cache, train augmentation is only a cached horizontal flip (`cache_flip`), which doubles samples per epoch. Set `train.cache_features: false` for full augmentation. Finetuning (`unfreeze_last > 0`) never caches.
+- Cached loaders use `num_workers=0` and `__getitems__` batch fetch; small caches (< `DINO_CACHE_RAM_GB`, default 8) load into RAM, larger ones are memory-mapped.
+
 ## Dashboard (local, http://127.0.0.1:8765)
 - `.venv/Scripts/python -m uvicorn dashboard.app:app --port 8765` (or preview config `dashboard` in `.claude/launch.json`). Setup: `python -m venv .venv && .venv/Scripts/pip install -r dashboard/requirements.txt`.
 - Runs on this PC and pulls data over one persistent paramiko SSH connection (~0.5-1 s per call; a fresh `ssh` handshake costs ~3.3 s at 260 ms RTT). The box needs no open ports.

@@ -19,6 +19,8 @@ DEFAULTS = {
         "weight_decay": 1e-4,
         "warmup_frac": 0.05,
         "unfreeze_last": 0,  # 0 = frozen backbone (linear probe); N = finetune last N blocks
+        "cache_features": "auto",  # auto = on when frozen: backbone runs once, heads train on cached features
+        "cache_flip": True,  # with the cache, augmentation = cached horizontal flip only
         "workers": 4,
         "amp": "bf16",  # bf16 | fp32
         "log_every": 20,

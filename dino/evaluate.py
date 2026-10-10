@@ -24,13 +24,14 @@ def autocast(cfg):
 
 
 @torch.no_grad()
-def confusion(model, loader, n, cfg, device="cuda"):
+def confusion(model, loader, n, cfg, device="cuda", forward=None):
     conf = torch.zeros(n * n, dtype=torch.long, device=device)
     model.eval()
+    forward = forward or model
     for x, y in loader:
         x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
         with autocast(cfg):
-            pred = model(x).argmax(1)
+            pred = forward(x).argmax(1)
         keep = y != IGNORE
         conf += torch.bincount(n * y[keep] + pred[keep], minlength=n * n)
     return conf.view(n, n).cpu()
@@ -55,10 +56,11 @@ def seg_metrics(conf, classes):
             "pixel_acc": (tp.sum() / conf.sum()).item(), "per_class_iou": dict(zip(names, iou.tolist()))}
 
 
-def compute_metrics(model, loader, cfg, classes, device="cuda"):
+def compute_metrics(model, loader, cfg, classes, device="cuda", forward=None):
+    """forward: optional callable batch -> logits (e.g. the head on cached features); default model(x)."""
     if cfg["task"] == "cls":
-        return cls_metrics(confusion(model, loader, len(classes), cfg, device), classes)
-    return seg_metrics(confusion(model, loader, len(classes) + 1, cfg, device), classes)
+        return cls_metrics(confusion(model, loader, len(classes), cfg, device, forward), classes)
+    return seg_metrics(confusion(model, loader, len(classes) + 1, cfg, device, forward), classes)
 
 
 PRIMARY = {"cls": "acc", "seg": "miou"}

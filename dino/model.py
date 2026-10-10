@@ -18,8 +18,15 @@ class ClsHead(nn.Module):
         self.bn = nn.BatchNorm1d(2 * dim, affine=False)
         self.fc = nn.Linear(2 * dim, n_classes)
 
+    @staticmethod
+    def pool(cls, patches):
+        return torch.cat([cls, patches.mean((2, 3))], 1)
+
+    def classify(self, f):
+        return self.fc(self.bn(f))
+
     def forward(self, cls, patches, out_size=None):
-        return self.fc(self.bn(torch.cat([cls, patches.mean((2, 3))], 1)))
+        return self.classify(self.pool(cls, patches))
 
 
 class SegHead(nn.Module):
@@ -50,6 +57,12 @@ class DinoModel(nn.Module):
         cls, patches = self.backbone(x)
         # heads run on fp32 features (BN on bf16 is not worth the risk on ROCm)
         return self.head(cls.float(), patches.float(), x.shape[-2:])
+
+    def forward_features(self, f, out_size):
+        """Head only, on cached backbone features (see dino.features)."""
+        if self.task == "cls":
+            return self.head.classify(f.float())
+        return self.head(None, f.float(), out_size)
 
     def trainable_state_dict(self):
         trainable = {n for n, p in self.named_parameters() if p.requires_grad}
