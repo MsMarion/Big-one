@@ -10,6 +10,13 @@ bash scripts/run.sh bash tests/smoke/test_pipeline.sh           # synthetic smok
 bash scripts/pull.sh _compare                                   # comparison table/plot -> results/_compare
 ```
 
+## Dashboard
+```bash
+python -m venv .venv && .venv/Scripts/pip install -r dashboard/requirements.txt
+.venv/Scripts/python -m uvicorn dashboard.app:app --port 8765     # open http://127.0.0.1:8765
+```
+It shows live GPU/CPU/RAM/disk, processes and job logs, runs (metrics, train logs, files, mask gallery), the backbone comparison chart, and a remote FastAPI ping. Everything is pulled over SSH, because the host disables port forwarding.
+
 ## Your own data
 1. Convert raw captures into the frames layout on the box:
    `python -m dino.data.rgbd --rgb_dir ... --depth_dir ... --K K.json --depth_scale 0.001 --out $DINO_DATA/mycam/train`

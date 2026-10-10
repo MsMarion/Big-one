@@ -6,3 +6,4 @@ __pycache__/
 *.pt
 *.safetensors
 .venv/
+__pycache__/

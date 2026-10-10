@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dino-box</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3f0; --surface-1: #fcfcfb; --border: #e2e1dc;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #8a8984;
+  --series-1: #2a78d6; --series-1-fill: rgba(42,120,214,.12); --grid: #ecebe7;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2b;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8d8c84;
+    --series-1: #3987e5; --series-1-fill: rgba(57,135,229,.16); --grid: #272724;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2b;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8d8c84;
+  --series-1: #3987e5; --series-1-fill: rgba(57,135,229,.16); --grid: #272724;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 20px;
+  border-bottom: 1px solid var(--border); background: var(--surface-1); }
+header h1 { font-size: 16px; margin: 0; }
+.muted { color: var(--text-muted); } .secondary { color: var(--text-secondary); }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+main { padding: 16px 20px 40px; display: grid; gap: 16px; max-width: 1400px; margin: 0 auto; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card h2 { font-size: 13px; font-weight: 600; margin: 0 0 10px; color: var(--text-secondary); }
+.tile .v { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .s { font-size: 12px; color: var(--text-muted); }
+.meter { height: 6px; border-radius: 3px; background: var(--grid); margin-top: 8px; overflow: hidden; }
+.meter > i { display: block; height: 100%; background: var(--series-1); border-radius: 3px; }
+.row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+svg.chart { width: 100%; height: 140px; display: block; }
+svg text { fill: var(--text-muted); font-size: 11px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { font-weight: 600; color: var(--text-secondary); font-size: 12px; }
+tbody tr { cursor: pointer; } tbody tr:hover { background: var(--grid); }
+tr.sel { background: var(--grid); }
+.scroll { overflow-x: auto; }
+button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-0); color: var(--text-primary); cursor: pointer; }
+button:hover { border-color: var(--series-1); }
+pre { background: var(--surface-0); border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+  max-height: 320px; overflow: auto; font-size: 12px; margin: 8px 0 0; white-space: pre-wrap; word-break: break-all; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13px; }
+.kv dt { color: var(--text-muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 8px; }
+.gallery figure { margin: 0; } .gallery img { width: 100%; border-radius: 4px; display: block; background: var(--grid); }
+.gallery figcaption { font-size: 11px; color: var(--text-muted); }
+.tip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; z-index: 10; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.tabs button.on { border-color: var(--series-1); color: var(--series-1); }
+.empty { color: var(--text-muted); font-size: 13px; }
+@media (max-width: 600px) { main, header { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>dino-box</h1>
+  <span id="conn" class="badge"><span class="dot" style="background:var(--text-muted)"></span>connecting…</span>
+  <span id="host" class="muted"></span>
+  <span id="updated" class="muted" style="margin-left:auto"></span>
+</header>
+<main>
+  <section class="tiles" id="tiles"></section>
+
+  <section class="row2">
+    <div class="card"><h2>GPU utilization (%) · last 5 min</h2><svg class="chart" id="ch-util"></svg></div>
+    <div class="card"><h2>VRAM used (GB) · last 5 min</h2><svg class="chart" id="ch-vram"></svg></div>
+  </section>
+
+  <section class="row2">
+    <div class="card">
+      <h2>Remote FastAPI ping</h2>
+      <p class="secondary" style="margin:0 0 8px;font-size:13px">PC → ssh → curl on the box → uvicorn on 127.0.0.1:8000 (SSH tunnels are disabled on this host)</p>
+      <button id="pingBtn">Ping now</button> <span id="pingState" class="badge"></span>
+      <dl class="kv" id="pingOut" style="margin-top:10px"></dl>
+    </div>
+    <div class="card">
+      <h2>Processes &amp; background jobs</h2>
+      <div id="procs"></div>
+      <div id="jobs" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Runs</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Run</th><th>Task</th><th>Backbone</th><th>Best</th><th>Val history</th><th>Infer bs1</th><th>Peak VRAM</th><th>Train time</th><th>Updated</th></tr></thead>
+      <tbody id="runs"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card" id="cmpCard" hidden>
+    <h2>Backbone comparison <span class="muted">(runs/_compare, from python -m dino.compare)</span></h2>
+    <img id="cmpImg" alt="comparison chart of best metric per run" style="max-width:100%;border-radius:6px">
+  </section>
+
+  <section class="card" id="detail" hidden>
+    <h2 id="dTitle"></h2>
+    <div class="tabs" id="dTabs"></div>
+    <div id="dBody"></div>
+  </section>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (v, d = 1) => v == null ? "–" : Number(v).toFixed(d);
+const ago = t => { const s = Date.now() / 1000 - t; return s < 90 ? `${s|0}s ago` : s < 5400 ? `${s/60|0}m ago` : s < 172800 ? `${s/3600|0}h ago` : `${s/86400|0}d ago`; };
+const hist = { t: [], util: [], vram: [] };
+let prevCpu = null, selected = null;
+
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.text()).slice(0, 300));
+  return r.headers.get("content-type")?.includes("json") ? r.json() : r.text();
+}
+
+function tile(label, value, sub, frac) {
+  return `<div class="card tile"><h2>${label}</h2><div class="v">${value}</div><div class="s">${sub}</div>` +
+    (frac != null ? `<div class="meter"><i style="width:${Math.min(100, Math.max(0, frac * 100)).toFixed(1)}%"></i></div>` : "") + `</div>`;
+}
+
+function statusBadge(level, text) {
+  const icon = { good: "✓", warning: "!", critical: "✕" }[level];
+  return `<span class="dot" style="background:var(--${level})"></span><span aria-hidden="true">${icon}</span> ${esc(text)}`;
+}
+
+/* single-series area/line chart with crosshair tooltip */
+function lineChart(svg, ts, ys, { max, unit }) {
+  const W = svg.clientWidth || 400, H = 140, L = 34, R = 8, T = 8, B = 20;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const now = Date.now() / 1000, span = 300;
+  const x = t => L + (W - L - R) * (1 - (now - t) / span);
+  const top = max ?? Math.max(1, ...ys) * 1.15;
+  const y = v => T + (H - T - B) * (1 - v / top);
+  let g = "";
+  for (const f of [0, .5, 1]) {
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(top * f)}" y2="${y(top * f)}" stroke="var(--grid)"/>` +
+         `<text x="${L - 6}" y="${y(top * f) + 4}" text-anchor="end">${fmt(top * f, top < 10 ? 1 : 0)}</text>`;
+  }
+  g += `<text x="${L}" y="${H - 4}">-5m</text><text x="${W - R}" y="${H - 4}" text-anchor="end">now</text>`;
+  const pts = ts.map((t, i) => [x(t), y(ys[i])]).filter(p => p[0] >= L);
+  if (pts.length > 1) {
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
+    g += `<path d="${d}L${pts.at(-1)[0]},${y(0)}L${pts[0][0]},${y(0)}Z" fill="var(--series-1-fill)"/>` +
+         `<path d="${d}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>`;
+    const last = pts.at(-1);
+    g += `<circle cx="${last[0]}" cy="${last[1]}" r="4" fill="var(--series-1)" stroke="var(--surface-1)" stroke-width="2"/>`;
+  } else g += `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">collecting samples…</text>`;
+  g += `<line id="xh" y1="${T}" y2="${H - B}" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>`;
+  g += `<rect x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/>`;
+  svg.innerHTML = g;
+  const xh = svg.querySelector("#xh"), tip = $("#tip");
+  svg.onmousemove = e => {
+    if (!ts.length) return;
+    const r = svg.getBoundingClientRect(), mx = (e.clientX - r.left) * W / r.width;
+    let bi = 0, bd = 1e9;
+    ts.forEach((t, i) => { const d = Math.abs(x(t) - mx); if (d < bd) { bd = d; bi = i; } });
+    xh.setAttribute("x1", x(ts[bi])); xh.setAttribute("x2", x(ts[bi])); xh.setAttribute("visibility", "visible");
+    tip.style.display = "block"; tip.style.left = e.clientX + 12 + "px"; tip.style.top = e.clientY - 28 + "px";
+    tip.innerHTML = `<b>${fmt(ys[bi], 1)} ${unit}</b> <span class="muted">${new Date(ts[bi] * 1000).toLocaleTimeString()}</span>`;
+  };
+  svg.onmouseleave = () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); };
+}
+
+function spark(vals) {
+  const v = (vals || []).filter(x => x != null);
+  if (v.length < 2) return "";
+  const W = 90, H = 22, lo = Math.min(...v), hi = Math.max(...v), rng = hi - lo || 1;
+  const pts = v.map((y, i) => `${(i / (v.length - 1) * (W - 6) + 3).toFixed(1)},${(H - 3 - (y - lo) / rng * (H - 6)).toFixed(1)}`);
+  const last = pts.at(-1).split(",");
+  return `<svg width="${W}" height="${H}" aria-label="history ${v.map(x => x.toFixed(3)).join(", ")}"><title>${v.map(x => x.toFixed(3)).join(" → ")}</title>` +
+    `<polyline points="${pts.join(" ")}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>` +
+    `<circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="var(--series-1)"/></svg>`;
+}
+
+function render(d) {
+  const g = d.gpu || {}, c = d.container || {};
+  $("#conn").innerHTML = statusBadge("good", `connected · ssh ${d.ssh_ms} ms`);
+  $("#host").textContent = d.host;
+  $("#updated").textContent = "updated " + new Date(d.time * 1000).toLocaleTimeString();
+
+  let cpuPct = null;
+  if (prevCpu && d.time > prevCpu.time) cpuPct = (c.cpu_usage_usec - prevCpu.usec) / 1e6 / (d.time - prevCpu.time) / (c.cpus || 1) * 100;
+  prevCpu = { time: d.time, usec: c.cpu_usage_usec };
+
+  const vramGb = (g.vram_used_mb || 0) / 1024, vramTot = (g.vram_total_mb || 0) / 1024;
+  const temp = g.temp_hotspot ?? g.temp_edge;
+  $("#tiles").innerHTML =
+    tile("GPU util", `${fmt(g.gfx_util, 0)}%`, `memory controller ${fmt(g.mem_util, 0)}%`, (g.gfx_util || 0) / 100) +
+    tile("VRAM", `${fmt(vramGb, 1)} GB`, `of ${fmt(vramTot, 0)} GB`, vramTot ? vramGb / vramTot : 0) +
+    tile("GPU power / temp", `${fmt(g.power_w, 0)} W`, `hotspot ${fmt(temp, 0)}°C · edge ${fmt(g.temp_edge, 0)}°C`) +
+    tile("Container CPU", cpuPct == null ? "…" : `${fmt(cpuPct, 0)}%`, `${fmt(c.cpus, 0)} cores · host load ${fmt(c.loadavg_host?.[0], 1)}`, cpuPct == null ? null : cpuPct / 100) +
+    tile("Container RAM", `${fmt(c.mem_used_gb, 1)} GB`, `of ${fmt(c.mem_max_gb, 0)} GB`, c.mem_max_gb ? c.mem_used_gb / c.mem_max_gb : null) +
+    tile("/workspace (persistent)", `${fmt(c.workspace_used_gb, 1)} GB`, `of ${fmt(c.workspace_total_gb, 0)} GB`, c.workspace_total_gb ? c.workspace_used_gb / c.workspace_total_gb : null);
+
+  hist.t.push(d.time); hist.util.push(g.gfx_util ?? 0); hist.vram.push(vramGb);
+  while (hist.t.length && d.time - hist.t[0] > 300) { hist.t.shift(); hist.util.shift(); hist.vram.shift(); }
+  lineChart($("#ch-util"), hist.t, hist.util, { max: 100, unit: "%" });
+  lineChart($("#ch-vram"), hist.t, hist.vram, { unit: "GB" });
+
+  $("#procs").innerHTML = d.processes.length
+    ? `<table><thead><tr><th>PID</th><th>Command</th></tr></thead><tbody>${d.processes.map(p => `<tr><td>${p.pid}</td><td style="white-space:normal;word-break:break-all">${esc(p.cmd)}</td></tr>`).join("")}</tbody></table>`
+    : `<p class="empty">No training / inference / server processes running.</p>`;
+  $("#jobs").innerHTML = d.jobs.length
+    ? `<div class="secondary" style="font-size:12px;margin-bottom:4px">Job logs (click to view)</div>` +
+      d.jobs.map(j => `<button data-job="${esc(j.name)}" style="margin:0 6px 6px 0">${esc(j.name)} <span class="muted">${ago(j.mtime)}</span></button>`).join("")
+    : "";
+  document.querySelectorAll("[data-job]").forEach(b => b.onclick = () => showJob(b.dataset.job));
+
+  $("#runs").innerHTML = d.runs.map(r => r.in_progress
+    ? `<tr data-run="${esc(r.name)}" class="${selected === r.name ? "sel" : ""}"><td>${esc(r.name)}</td><td colspan="7" class="muted">in progress…</td><td>${ago(r.mtime)}</td></tr>`
+    : `<tr data-run="${esc(r.name)}" class="${selected === r.name ? "sel" : ""}"><td>${esc(r.name)}</td><td>${r.task}</td><td>${esc(r.backbone)}</td>` +
+      `<td><b>${fmt(r.best, 3)}</b> <span class="muted">${r.metric}</span></td><td>${spark(r.history)}</td>` +
+      `<td>${r.ms_bs1 == null ? "–" : fmt(r.ms_bs1, 1) + " ms"}</td><td>${fmt(r.peak_gb, 2)} GB</td><td>${fmt(r.train_s, 0)} s</td><td>${ago(r.mtime)}</td></tr>`
+  ).join("") || `<tr><td colspan="9" class="empty">No runs yet.</td></tr>`;
+  document.querySelectorAll("[data-run]").forEach(tr => tr.onclick = () => showRun(tr.dataset.run));
+}
+
+async function poll() {
+  try { render(await api("/api/status")); }
+  catch (e) { $("#conn").innerHTML = statusBadge("critical", "disconnected"); $("#updated").textContent = String(e.message).slice(0, 120); }
+  setTimeout(poll, 3000);
+}
+
+async function ping() {
+  $("#pingState").innerHTML = `<span class="muted">pinging…</span>`;
+  try {
+    const r = await api("/api/remote-ping");
+    if (!r.ok) {
+      $("#pingState").innerHTML = statusBadge("critical", r.error);
+      $("#pingOut").innerHTML = `<dt>start it</dt><dd><code>${esc(r.hint)}</code></dd>`;
+      return;
+    }
+    $("#pingState").innerHTML = statusBadge("good", `pong · ${r.roundtrip_ms} ms round trip`);
+    $("#pingOut").innerHTML = [["host", r.ping.host], ["app uptime", `${fmt(r.ping.uptime_s, 0)} s`], ["pid", r.ping.pid],
+      ["device", r.gpu.device], ["torch / HIP", `${r.gpu.torch} / ${r.gpu.hip}`], ["2k bf16 matmul", `${r.gpu.matmul_ms} ms`]]
+      .map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  } catch (e) { $("#pingState").innerHTML = statusBadge("critical", e.message.slice(0, 120)); }
+}
+
+function openDetail(title, tabs) {
+  $("#detail").hidden = false; $("#dTitle").textContent = title;
+  $("#dTabs").innerHTML = tabs.map((t, i) => `<button data-tab="${i}" class="${i ? "" : "on"}">${t[0]}</button>`).join("");
+  const show = i => { document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("on", +b.dataset.tab === i)); tabs[i][1](); };
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => show(+b.dataset.tab));
+  show(0); $("#detail").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function showJob(name) {
+  selected = null;
+  const load = async () => { $("#dBody").innerHTML = `<pre>${esc(await api(`/api/log?path=_jobs/${encodeURIComponent(name)}.log&lines=300`))}</pre>`; };
+  openDetail(`Job: ${name}`, [["Log tail", load]]);
+}
+
+async function gallery(run, dir) {
+  const ls = await api(`/api/ls?path=${encodeURIComponent(run + "/" + dir + "/rgb")}&limit=6`);
+  const ids = ls.entries.filter(e => e.endsWith(".png")).slice(0, 6);
+  return `<div class="gallery">${ids.map(f => {
+    const base = `/api/file?path=${encodeURIComponent(`${run}/${dir}`)}`;
+    return `<figure><img loading="lazy" src="${base}%2Frgb%2F${f}" alt="rgb ${f}"><figcaption>rgb ${f}</figcaption></figure>` +
+           `<figure><img loading="lazy" src="${base}%2Fmasks%2F${f}" alt="mask ${f}"><figcaption>mask ${f}</figcaption></figure>`;
+  }).join("")}</div>`;
+}
+
+async function showRun(name) {
+  selected = name;
+  document.querySelectorAll("[data-run]").forEach(tr => tr.classList.toggle("sel", tr.dataset.run === name));
+  const info = await api(`/api/run/${encodeURIComponent(name)}`);
+  const m = info.metrics, body = $("#dBody");
+  const tabs = [];
+  if (m) tabs.push(["Metrics", () => {
+    const bm = m.best_metrics || {}, per = bm.per_class_iou || bm.per_class_acc || {};
+    const rows = Object.entries(per);
+    body.innerHTML = `<dl class="kv">` + [["backbone", m.backbone], ["task", m.task], ["best " + m.primary_metric, fmt(m.best, 4)],
+      ["epochs", m.epochs], ["img size", (m.img_size || []).join("×")], ["train imgs/s", fmt(m.train_imgs_per_s, 0)],
+      ["params", `${fmt(m.total_params / 1e6, 1)}M total · ${m.trainable_params} trainable`],
+      ["data", `${m.n_train} train / ${m.n_val} val`]].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") + `</dl>` +
+      (rows.length ? `<h2 style="margin-top:14px">Per-class ${m.task === "seg" ? "IoU" : "accuracy"}</h2>` +
+        rows.map(([k, v]) => `<div style="display:grid;grid-template-columns:110px 1fr 50px;gap:8px;align-items:center;margin:3px 0">` +
+          `<span class="secondary">${esc(k)}</span><div class="meter" style="margin:0;height:10px"><i style="width:${(v * 100).toFixed(1)}%"></i></div>` +
+          `<span style="font-variant-numeric:tabular-nums">${fmt(v, 3)}</span></div>`).join("") : "");
+  }]);
+  tabs.push(["Train log", async () => { body.innerHTML = `<pre>${esc(await api(`/api/log?path=${encodeURIComponent(name)}%2Flog.txt&lines=400`))}</pre>`; }]);
+  for (const d of info.dirs.filter(d => !d.includes("/")))
+    tabs.push([`Files: ${d}`, async () => {
+      body.innerHTML = `<p class="muted">loading…</p>`;
+      const ls = await api(`/api/ls?path=${encodeURIComponent(name + "/" + d)}`);
+      let html = `<div class="secondary" style="font-size:12px">${ls.entries.length} entries: ${ls.entries.slice(0, 20).map(esc).join(" ")}</div>`;
+      if (ls.entries.includes("rgb/") && ls.entries.includes("masks/")) html += await gallery(name, d);
+      const csv = ls.entries.find(e => e.endsWith(".csv"));
+      if (csv) html += `<pre>${esc(await api(`/api/log?path=${encodeURIComponent(`${name}/${d}/${csv}`)}&lines=25&head=true`))}</pre>`;
+      body.innerHTML = html;
+    }]);
+  openDetail(`Run: ${name}`, tabs);
+}
+
+$("#pingBtn").onclick = ping;
+$("#cmpImg").onload = () => { $("#cmpCard").hidden = false; };
+$("#cmpImg").src = "/api/file?path=_compare%2Fcompare.png";
+poll(); ping();
+</script>
+</body>
+</html>

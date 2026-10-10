@@ -25,6 +25,14 @@ ssh dino-box bash /workspace/dino/code/remote/bootstrap.sh             # re-run 
 ```
 Always `sync.sh` before running edited code remotely.
 
+## Dashboard (local, http://127.0.0.1:8765)
+- `.venv/Scripts/python -m uvicorn dashboard.app:app --port 8765` (or preview config `dashboard` in `.claude/launch.json`). Setup: `python -m venv .venv && .venv/Scripts/pip install -r dashboard/requirements.txt`.
+- Runs on this PC and pulls data over one persistent paramiko SSH connection (~0.5-1 s per call; a fresh `ssh` handshake costs ~3.3 s at 260 ms RTT). The box needs no open ports.
+- Shows GPU util/VRAM/power/temp (via `remote/status.py` → `/opt/venv/bin/amd-smi`), container CPU/RAM, /workspace disk, running processes, job logs, runs with metrics/logs/files, the FoundationPose mask gallery, and `runs/_compare/compare.png`.
+- **SSH port forwarding is disabled by the provider** (`AllowTcpForwarding no` in /tmp/amd-oneclick-sshd_config). Don't try to tunnel; don't change that config.
+- Remote FastAPI test app: `remote/ping_app.py` on 127.0.0.1:8000 (`bash scripts/bg.sh ping uvicorn remote.ping_app:app --host 127.0.0.1 --port 8000`). The dashboard reaches it via `ssh … curl`.
+- Only ports 22 (public 36168) and 8888 (provider JupyterLab, root_dir /workspace) listen on the box.
+
 ## Box facts
 - GPU: AMD Radeon Pro W7900D, 48 GB, gfx1100, ROCm. torch 2.13+rocm comes from `/opt/venv` (Python 3.14), chained into our venv through a `.pth` file. Use `torch.cuda.*` APIs (HIP) with bf16 autocast.
 - The torchvision build has **no libpng/libjpeg decoders**, so read images with PIL (`dino.data.datasets.read_rgb`).

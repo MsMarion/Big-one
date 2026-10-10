@@ -6,3 +6,5 @@ pyyaml
 scikit-learn
 tqdm
 tabulate
+fastapi
+uvicorn
