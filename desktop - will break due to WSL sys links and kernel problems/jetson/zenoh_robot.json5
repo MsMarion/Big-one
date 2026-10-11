@@ -1,0 +1,55 @@
+// zenoh-bridge-ros2dds on the JETSON in the ROBOT role (docs/learning/22_jetson_d405.md): the SO-101 + D405 live
+// here; the PC is the "brain". Topology as for the camera-only Jetson: this bridge LISTENS on 7447, the PC's
+// container router connects to it (config/remote_sensors.yaml), so the PC needs no inbound firewall rule.
+//
+// An ALLOW-LIST in both directions. Everything not listed stays on the Jetson. The PC can only do what the brain
+// needs: plan + execute arm motions (MoveIt), open/close the gripper, ask for a desk scan / a close look, switch the
+// servos' torque. It cannot, e.g., start/stop controllers or write servo registers.
+{
+  plugins: {
+    ros2dds: {
+      domain: 42,
+      allow: {
+        // Jetson -> PC: state, the robot model, the map, the wrist camera (compressed: ~5 MB/s instead of ~60)
+        publishers: [
+          "/joint_states", "/tf", "/tf_static",
+          "/robot_description", "/robot_description_semantic",
+          "/monitored_planning_scene", "/display_planned_path",
+          "/wrist_map/topview", "/wrist_map/objects", "/wrist_map/markers", "/wrist_map/cloud", "/sensors/markers",
+          "/so101_bridge/status",
+          "/wrist_camera/camera/color/image_raw/compressed",
+          "/wrist_camera/camera/aligned_depth_to_color/image_raw/compressedDepth",
+          "/wrist_camera/camera/color/camera_info",
+          "/calibration/status", "/calibration/state",
+          // the fixed D435i on this Jetson (camera:=local): compressed, like the wrist camera
+          "/camera/camera/color/image_raw/compressed",
+          "/camera/camera/aligned_depth_to_color/image_raw/compressedDepth",
+          "/camera/camera/color/camera_info",
+        ],
+        // PC -> Jetson topics: which object a pick is about (the close look follows it); later, with the fixed
+        // D435i on the PC side, its obstacle cloud for MoveIt's Octomap
+        subscribers: [
+          "/perception/focus", "/perception/obstacle_cloud",
+        ],
+        // services the Jetson offers to the PC
+        service_servers: [
+          "/apply_planning_scene", "/get_planning_scene", "/check_state_validity", "/clear_octomap",
+          "/wrist_map/scan", "/wrist_map/look", "/perception/refine_pose", "/so101_bridge/enable",
+          "/controller_manager/list_controllers",
+        ],
+        service_clients: [],
+        // actions the Jetson offers to the PC: MoveIt plan+execute, the controllers (the pick node's straight lines)
+        action_servers: [
+          "/move_action", "/execute_trajectory",
+          "/so101_arm_controller/follow_joint_trajectory", "/so101_gripper/gripper_cmd",
+        ],
+        action_clients: [],
+      },
+      pub_priorities: [".*joint_states=1:express", ".*tf(_static)?=2", ".*compressed.*=6"],
+      pub_max_frequencies: [".*compressed.*=15"],
+    },
+  },
+  mode: "router",
+  listen: { endpoints: ["tcp/0.0.0.0:7447"] },
+  scouting: { multicast: { enabled: false } },
+}

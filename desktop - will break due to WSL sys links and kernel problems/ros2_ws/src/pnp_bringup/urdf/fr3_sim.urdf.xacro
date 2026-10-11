@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FR3 + Franka Hand for the Isaac Sim setup = the stock franka_description model + OUR ros2_control block.
+
+  What this teaches: a URDF describes kinematics/geometry; the <ros2_control> tag says which hardware
+  plugin drives which joints. Swapping sim <-> real = swapping only this tag:
+    sim:  topic_based_ros2_control  (commands/states as JointState topics, exchanged with Isaac Sim)
+    mock: mock_components/GenericSystem (no robot: states simply follow commands; for real-SENSOR work
+          without an arm: MoveIt + RViz still plan and "move" a virtual FR3)
+    real: franka_hardware           (libfranka over Ethernet)  - Phase 6
+
+  Only fr3_finger_joint1 is commanded: fr3_finger_joint2 is a <mimic> joint in the URDF (and in Isaac's
+  USD), so robot_state_publisher and MoveIt derive it automatically.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="fr3">
+
+  <xacro:include filename="$(find franka_description)/robots/common/franka_robot.xacro"/>
+
+  <!-- Initial joint values = config/robot_fr3.yaml arm.home (passed in by the launch file). They seed the
+       hardware's command buffer so nothing is commanded to the sim before a controller takes over. -->
+  <xacro:arg name="home" default="0.0 -0.785 0.0 -2.356 0.0 1.571 0.785"/>
+  <xacro:arg name="joint_states_topic" default="/isaac_joint_states"/>
+  <xacro:arg name="joint_commands_topic" default="/isaac_joint_command"/>
+  <xacro:arg name="hardware" default="isaac"/>   <!-- isaac | mock -->
+
+  <!-- Same arguments/defaults as franka_description/robots/fr3/fr3.urdf.xacro -->
+  <xacro:franka_robot robot_type="fr3"
+    include_self_collision_geometry="true"
+    hand="true"
+    ee_id="franka_hand"
+    special_connection=""
+    xyz_ee="0 0 0"
+    rpy_ee="0 0 ${-pi/4}"
+    tcp_xyz=""
+    tcp_rpy="0 0 0"
+    safety_distance="0.03"
+    with_sc="false"
+    no_prefix="false"
+    arm_prefix=""
+    description_pkg="franka_description"
+    connected_to="base">
+  </xacro:franka_robot>
+
+  <xacro:property name="home" value="${'$(arg home)'.split()}"/>
+
+  <ros2_control name="IsaacSimSystem" type="system">
+    <hardware>
+      <xacro:if value="${'$(arg hardware)' == 'isaac'}">
+        <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+        <param name="joint_commands_topic">$(arg joint_commands_topic)</param>
+        <param name="joint_states_topic">$(arg joint_states_topic)</param>
+        <!-- Isaac Sim reports revolute joints wrapped to (-2pi, 2pi); the plugin un-wraps them -->
+        <param name="sum_wrapped_joint_states">true</param>
+      </xacro:if>
+      <xacro:if value="${'$(arg hardware)' == 'mock'}">
+        <plugin>mock_components/GenericSystem</plugin>
+      </xacro:if>
+    </hardware>
+    <xacro:macro name="arm_joint" params="i">
+      <joint name="fr3_joint${i}">
+        <command_interface name="position"/>
+        <state_interface name="position">
+          <param name="initial_value">${home[i - 1]}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+    </xacro:macro>
+    <xacro:arm_joint i="1"/>
+    <xacro:arm_joint i="2"/>
+    <xacro:arm_joint i="3"/>
+    <xacro:arm_joint i="4"/>
+    <xacro:arm_joint i="5"/>
+    <xacro:arm_joint i="6"/>
+    <xacro:arm_joint i="7"/>
+    <joint name="fr3_finger_joint1">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.04</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+</robot>

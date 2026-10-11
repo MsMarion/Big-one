@@ -1,0 +1,8 @@
+# Perception/training deps for the WSL venv (~/pnp_venv). torch/torchvision are installed
+# separately from the cu128 index (see setup/wsl_setup.sh) because the RTX 5090 needs CUDA 12.8+.
+# numpy<2: ROS Jazzy's cv_bridge is compiled against numpy 1.x; numpy 2 breaks it at import time.
+numpy>=1.23,<2
+ultralytics>=8.3
+opencv-python-headless>=4.8
+pyyaml>=6
+pytest>=7

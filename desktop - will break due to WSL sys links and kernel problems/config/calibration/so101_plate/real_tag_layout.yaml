@@ -1,0 +1,38 @@
+# Where the AprilTags REALLY lie on the board (tools/tag_layout_from_camera.py): their relative layout
+# from the fixed camera, anchored to the base by tape measurements. calibrate.py locate and
+# tools/wrist_tag_check.py use these instead of the plan (config/calibration_targets_*.yaml).
+date: '2026-10-11T13:43:05'
+measured_cm:
+  3: [6.0, 16.0]
+  4: [-4.0, -13.0]
+  9: [31.0, 0.5]
+scale: 0.99136
+anchor_residual_mm: 10.74
+tags:
+  1:
+    xy: [-0.022, 0.2929]
+    yaw_deg: -3.31
+  2:
+    xy: [-0.0744, -0.2805]
+    yaw_deg: -3.02
+  3:
+    xy: [0.0499, 0.1636]
+    yaw_deg: -5.41
+  4:
+    xy: [-0.0323, -0.1251]
+    yaw_deg: -6.83
+  5:
+    xy: [0.1434, 0.268]
+    yaw_deg: -3.85
+  6:
+    xy: [0.1083, -0.2592]
+    yaw_deg: -2.0
+  7:
+    xy: [0.3446, 0.1484]
+    yaw_deg: -0.88
+  8:
+    xy: [0.28, -0.1672]
+    yaw_deg: -2.39
+  9:
+    xy: [0.3124, -0.0035]
+    yaw_deg: -4.82

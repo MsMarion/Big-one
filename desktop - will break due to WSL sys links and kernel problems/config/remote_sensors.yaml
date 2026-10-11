@@ -1,0 +1,12 @@
+﻿# Sensors on another computer (Phase 6): a Jetson streaming the real D435i over the network.
+#
+# The PC's container zenoh router CONNECTS OUT to the Jetson's zenoh bridge (which listens). Outbound from the
+# PC means no inbound Windows/Hyper-V firewall rule is needed; only the Jetson must accept TCP on `endpoint`.
+# Read by setup/zenoh_container.sh when the router (re)starts:
+#   bash ~/pnp_repo/setup/restart_zenoh_container.sh
+# See docs/learning/08_real_sensors.md and jetson/README.md.
+jetson:
+  # ON while the real SO-101 + D405 on the Jetson are in use (2026-10-11). Set false before running Isaac Sim:
+  # the Jetson's /joint_states, /tf, /robot_description would collide with the sim's.
+  enabled: true
+  endpoint: tcp/192.168.2.38:7447      # the Jetson (marion-jetson, Wi-Fi; set a DHCP reservation so it doesn't change)

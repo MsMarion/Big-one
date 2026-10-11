@@ -1,0 +1,23 @@
+# Hand-eye calibration of the d405 (tools/calibrate.py wrist). camera_tf_node publishes
+# T_parent_optical as gripper_link -> wrist_camera_color_optical_frame. history: earlier results, newest first.
+camera: d405
+parent: gripper_link
+optical_frame: wrist_camera_color_optical_frame
+T_parent_optical:
+  xyz: [0.003331, -0.071947, -0.025613]
+  quat_xyzw: [0.0039841, 0.9626978, 0.270317, 0.0112166]
+date: '2026-10-11T00:54:09'
+method: horaud+refine
+views: 14
+rotation_span_deg: 138.5
+reprojection_px: 0.168
+residual: {pos_mm_rms: 0.212, rot_deg_rms: 0.1608}
+board: table_board
+board_found:
+  xyz: [0.114957, 0.059905, -0.001405]
+  quat_xyzw: [-0.9999992, -4.09e-05, 7.72e-05, 0.0012599]
+samples: data/calibration/d405_20261011_005228
+sim_truth_error: {pos_mm: 0.214, rot_deg: 0.061}
+sim_profile: twin
+before: {pos_mm: 6.969, rot_deg: 1.8941}
+history: []

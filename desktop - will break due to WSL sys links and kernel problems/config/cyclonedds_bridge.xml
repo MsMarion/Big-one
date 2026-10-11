@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  CycloneDDS settings for the zenoh-bridge-ros2dds processes (Windows and container), via CYCLONEDDS_URI.
+  The bridge uses CycloneDDS internally to talk to the local ROS nodes. Large socket buffers so
+  ~1 MB camera images (many UDP fragments) are not dropped. See config/fastdds_container.xml.
+-->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="any">
+    <Internal>
+      <SocketReceiveBufferSize min="32MB"/>
+      <SocketSendBufferSize min="32MB"/>
+    </Internal>
+  </Domain>
+</CycloneDDS>

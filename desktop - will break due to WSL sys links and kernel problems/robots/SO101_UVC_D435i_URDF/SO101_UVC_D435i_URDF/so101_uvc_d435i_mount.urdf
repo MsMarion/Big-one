@@ -1,0 +1,142 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="so101_uvc_d435i_mount">
+  <material name="uvc_bottom">
+    <color rgba="0.40 0.68 0.36 1" />
+  </material>
+  <material name="uvc_top">
+    <color rgba="0.52 0.43 0.72 1" />
+  </material>
+  <material name="mount">
+    <color rgba="0.72 0.72 0.76 1" />
+  </material>
+  <material name="camera">
+    <color rgba="0.20 0.22 0.23 1" />
+  </material>
+  <material name="hardware">
+    <color rgba="0.72 0.73 0.75 1" />
+  </material>
+  <link name="uvc_mount_base_link">
+    <visual name="uvc_mount_bottom">
+      <origin xyz="0 0 0" rpy="1.57079632679 -0 0" />
+      <geometry>
+        <mesh filename="meshes/uvc_mount_bottom.stl" />
+      </geometry>
+      <material name="uvc_bottom" />
+    </visual>
+    <collision name="uvc_mount_bottom">
+      <origin xyz="0 0 0" rpy="1.57079632679 -0 0" />
+      <geometry>
+        <mesh filename="meshes/uvc_mount_bottom.stl" />
+      </geometry>
+    </collision>
+    <visual name="uvc_mount_top">
+      <origin xyz="0.0187 -0.0365 0.0322" rpy="1.57079632679 -0 0" />
+      <geometry>
+        <mesh filename="meshes/uvc_mount_top.stl" />
+      </geometry>
+      <material name="uvc_top" />
+    </visual>
+    <collision name="uvc_mount_top">
+      <origin xyz="0.0187 -0.0365 0.0322" rpy="1.57079632679 -0 0" />
+      <geometry>
+        <mesh filename="meshes/uvc_mount_top.stl" />
+      </geometry>
+    </collision>
+    <visual name="d435i_mount_fork">
+      <origin xyz="0.0574 -0.0365 0.365" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/d435i_mount_fork.stl" />
+      </geometry>
+      <material name="mount" />
+    </visual>
+    <collision name="d435i_mount_fork">
+      <origin xyz="0.0574 -0.0365 0.365" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/d435i_mount_fork.stl" />
+      </geometry>
+    </collision>
+    <visual name="m4_pivot_bolt">
+      <origin xyz="0.0459 -0.0448 0.365" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/m4_pivot_bolt.stl" />
+      </geometry>
+      <material name="hardware" />
+    </visual>
+    <visual name="m4_washer_head">
+      <origin xyz="0.0459 -0.0448 0.365" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/m4_washer_head.stl" />
+      </geometry>
+      <material name="hardware" />
+    </visual>
+    <visual name="m4_washer_nut">
+      <origin xyz="0.0459 -0.029 0.365" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/m4_washer_nut.stl" />
+      </geometry>
+      <material name="hardware" />
+    </visual>
+    <visual name="m4_locknut">
+      <origin xyz="0.0459 -0.0261 0.365" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/m4_locknut.stl" />
+      </geometry>
+      <material name="hardware" />
+    </visual>
+  </link>
+  <link name="d435i_tilt_link">
+    <visual name="d435i_tilt_plate">
+      <origin xyz="0.0115 0 2.01227923213e-16" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/d435i_tilt_plate.stl" />
+      </geometry>
+      <material name="mount" />
+    </visual>
+    <collision name="d435i_tilt_plate">
+      <origin xyz="0.0115 0 2.01227923213e-16" rpy="-1.57079632679 -0 1.57079632679" />
+      <geometry>
+        <mesh filename="meshes/d435i_tilt_plate.stl" />
+      </geometry>
+    </collision>
+    <visual name="m3_left">
+      <origin xyz="0.0075 -0.0225 3.0184188482e-16" rpy="-1.57079632679 -0 0" />
+      <geometry>
+        <mesh filename="meshes/m3_left.stl" />
+      </geometry>
+      <material name="hardware" />
+    </visual>
+    <visual name="m3_right">
+      <origin xyz="0.0075 0.0225 3.0184188482e-16" rpy="-1.57079632679 -0 0" />
+      <geometry>
+        <mesh filename="meshes/m3_right.stl" />
+      </geometry>
+      <material name="hardware" />
+    </visual>
+  </link>
+  <link name="d435i_camera_link">
+    <visual name="d435i_camera">
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/d435i_camera.stl" />
+      </geometry>
+      <material name="camera" />
+    </visual>
+    <collision name="d435i_camera">
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/d435i_camera.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="d435i_tilt" type="continuous">
+    <origin xyz="0.0459 -0.0365 0.365" rpy="0 0.378895682706 0" />
+    <parent link="uvc_mount_base_link" />
+    <child link="d435i_tilt_link" />
+    <axis xyz="0 1 0" />
+  </joint>
+  <joint name="d435i_camera_mount" type="fixed">
+    <origin xyz="0.03655 0 3.67761376907e-16" rpy="1.57079632679 -0 1.57079632679" />
+    <parent link="d435i_tilt_link" />
+    <child link="d435i_camera_link" />
+  </joint>
+</robot>

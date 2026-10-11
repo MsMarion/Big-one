@@ -1,0 +1,82 @@
+# SO-101 desk cell: pick a LEGO brick and place it at a goal, around obstacles (docs/learning/17_so101.md).
+# Same scene format as basic.yaml; `robot` and `cell` make every node / the sim / the tools use the SO-101.
+# Coordinates: the robot base frame (base_link, at the robot's mounting plate). The base's bottom face is
+# 2.4 mm below base_link, so the desk top is at z = -0.0024.
+#
+# Reach (pnp_core/urdf_kin.py, tools/reach_map.py): top-down grasps at brick height work out to ~0.28 m from the
+# base, but at the lift height only to ~0.24 m and not closer than ~0.13 m -> bricks and goals live in the band
+# 0.15-0.22 m in front of the arm.
+name: so101_lego
+robot: so101
+cell: so101_desk                  # calibrations of this cell: config/calibration/so101_desk/
+calibration_targets: config/calibration_targets_so101.yaml
+
+table:
+  center: [0.15, 0.0, -0.0149]    # a desk: top surface at z = -0.0024
+  size: [0.60, 0.70, 0.025]
+  height_above_floor: 0.75
+
+# The fixed camera (config/camera_d435i.yaml, overrides here): almost straight down from 48 cm above the work area
+# (a desk-lamp style arm on the real desk). Bricks are ~40 x 20 px; flat bricks are best seen from above (yaw from
+# their outline).
+camera:
+  mount:
+    position: [0.26, 0.0, 0.48]
+    look_at: [0.19, 0.0, 0.0]
+    boom: [0.26, -0.45]           # sim visual: the pole stands beside the desk, an arm reaches over (not in the view)
+
+target:
+  object: lego_2x4
+  spawn_region: {x: [0.15, 0.22], y: [-0.09, 0.09]}
+  default_xy: [0.19, 0.06]
+  detector_model: models/lego_seg_v1.pt
+
+goal:
+  xy: [0.19, -0.07]
+  yaw_deg: 0.0
+  marker_radius_m: 0.015
+  region: {x: [0.15, 0.22], y: [-0.10, 0.10]}
+  min_separation_m: 0.06
+
+obstacles:
+  count: [1, 2]
+  region: {x: [0.10, 0.30], y: [-0.22, 0.22]}
+  clearance_m: 0.055              # box footprint <-> brick center / goal: the open jaw + the gripper servo housing
+  # sometimes ONE box right beside the target, closer than the open jaw needs (pnp_core/obstacles.py): the right
+  # answer is to refuse (BLOCKED, pnp_core/pickability.py) -- the random layouts never made that case otherwise
+  too_close_prob: 0.25
+  too_close_gap_m: [0.004, 0.02]
+  robot_clearance_m: 0.11         # box footprint <-> robot base (its own shoulder sweeps here)
+  keep_clear:                     # the drift monitor's AprilTag (config/calibration_targets_so101.yaml)
+    - {xy: [0.31, 0.17], r_m: 0.04}
+  padding_m: 0.006
+  mass_kg: 0.05
+  color: [0.25, 0.35, 0.65]
+  pool:
+    - {id: wall,  size: [0.012, 0.08, 0.035], role: between}
+    - {id: block, size: [0.03, 0.03, 0.03]}
+    - {id: tower, size: [0.02, 0.02, 0.07]}
+
+# Perception tuning for this cell (defaults: the FR3 table's). Obstacles here are 2-7 cm, not 10-24 cm.
+perception:
+  # FoundationPose always on in the SO-101 cells (bringup pose_estimation:=auto): it tracks the brick clicked on the
+  # workcell page / being picked (/perception/focus, pnp_core/focus.py); the brick meshes: tools/make_brick_meshes.py
+  pose_estimation: true
+  # MoveIt's Octomap padding around the robot AND the table (default 2 cm: it erased the 1 cm bricks -> the other
+  # bricks were invisible to the planner)
+  octomap_padding_m: 0.005
+  pickability_margin_m: 0.004    # the room check's extra: the close look still turns the pose 3-6 deg (pnp_core/pickability.check_inflate)
+  # real bricks score ~0.9; a 0.5 hit on the robot's base made a phantom brick; a 1 cm brick needs +- 1 cm, not 3
+  detector: {conf: 0.6, height_tolerance_m: 0.01, exclude_radius_m: 0.11}
+  # close look before each grasp (pick_place_node LOOK step). With pose_estimation:=true (like the FR3) FoundationPose
+  # does it with the brick meshes (tools/make_brick_meshes.py); without it, this depth-only fallback refines the
+  # brick's center + yaw from the wrist D405 (pnp_core/wrist_refine.py)
+  wrist_refine: depth
+  # surface_band_m: points this close to the desk count as desk (default 15 mm hid the 11 mm bricks)
+  obstacle_cloud: {surface_band_m: 0.005, voxel_m: 0.01, robot_margin_m: 0.012, can_margin_m: 0.012, min_points_per_voxel: 2,
+                   change_min_voxels: 8, change_robot_margin_m: 0.04}
+
+physics:
+  dt: 0.008333                    # 120 Hz
+  solver_position_iterations: 32
+  friction: {static: 1.0, dynamic: 1.0, restitution: 0.0}

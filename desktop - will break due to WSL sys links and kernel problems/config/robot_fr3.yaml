@@ -1,0 +1,66 @@
+# Robot-specific parameters. Swapping robots (e.g. UR5e + Robotiq) = a new file like this one.
+# Nothing in code should hardcode FR3 names; read them from here.
+name: fr3
+
+# Eye-in-hand camera (D405) on the hand; null = no wrist camera (sim and ROS side both follow this).
+wrist_camera: config/camera_d405.yaml
+
+sim:
+  usd: Isaac/Robots/FrankaRobotics/FrankaFR3/fr3.usd   # relative to the Isaac assets root
+  prim_path: /World/fr3
+  base_position: [0.0, 0.0, 0.0]                        # robot base sits on the table top (z = 0)
+  # Lula/RMPflow configs shipped with Isaac (useful for sim-only debugging, not used by the ROS stack)
+  lula_dir: exts/isaacsim.robot_motion.motion_generation/motion_policy_configs/FR3
+
+# links of the hand: allowed to touch what the gripper holds / the wrist camera housing (MoveIt touch links)
+hand_links: [fr3_hand, fr3_leftfinger, fr3_rightfinger, fr3_hand_tcp, fr3_link7, fr3_link8]
+
+frames:
+  base: fr3_link0
+  tcp: fr3_hand_tcp
+  flange: fr3_link8
+
+arm:
+  joints: [fr3_joint1, fr3_joint2, fr3_joint3, fr3_joint4, fr3_joint5, fr3_joint6, fr3_joint7]
+  home: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]   # Franka "ready" pose (rad)
+  planning_group: fr3_arm
+  moveit_config_pkg: franka_fr3_moveit_config
+  controller: fr3_arm_controller
+  # Hard joint position limits [rad] of the REAL FR3 (datasheet). Isaac's fr3.usd uses exactly these
+  # (sim/inspect_usd.py shows them in degrees). franka_description 2.9.0's URDF is WIDER for some joints
+  # (joint1 +-2.9007), so MoveIt planned motions the robot can't do (the arm stopped at joint1 = -2.744 ->
+  # CONTROL_FAILED). bringup.launch.py clamps the URDF to these, minus limit_margin.
+  position_limits:
+    fr3_joint1: [-2.7437, 2.7437]
+    fr3_joint2: [-1.7837, 1.7837]
+    fr3_joint3: [-2.9007, 2.9007]
+    fr3_joint4: [-3.0421, -0.1518]
+    fr3_joint5: [-2.8065, 2.8065]
+    fr3_joint6: [0.5445, 4.5169]
+    fr3_joint7: [-3.0159, 3.0159]
+  limit_margin: 0.02
+  velocity_scaling: 0.3
+  acceleration_scaling: 0.3
+  # Per-task speed (PickPlace goal field `speed_profile`): fraction of the joint velocity/acceleration
+  # limits for free-space (OMPL) moves and straight-line (Pilz LIN) moves.
+  speed_profiles:
+    dev:  {free: 0.3, linear: 0.2}    # default: easy to watch, gentle on the grasp
+    fast: {free: 0.8, linear: 0.5}    # benchmarks / tests (grasp hold verified by the benchmark itself)
+  # Carrying an object the hand turns over (pnp_core/reorient.py): held near one end, it can swing round the fingers
+  # (seen in sim: a cracker box turned 83 deg in the hand on the way); slow moves keep the inertia low.
+  turned_carry_scaling: 0.1
+
+gripper:
+  joints: [fr3_finger_joint1, fr3_finger_joint2]        # each finger travels 0..0.04 m
+  driven_joint: fr3_finger_joint1                       # finger_joint2 is a PhysX mimic joint in the USD
+  max_width_m: 0.08
+  # The hand as a few boxes in the TCP frame (z = approach, y = closing): pnp_core/reorient.py checks with them that
+  # a hand turned to set an object on another face stays above the table (MoveIt checks the real meshes at run
+  # time). Franka Hand: 204 x 63 mm body from the flange (z -0.103) to the finger roots (z -0.043); fingers to the
+  # tips (TCP between the pads), 9 mm thick outside the opening.
+  hand_boxes:
+    - {name: body,    center: [0.0, 0.0, -0.073],  half: [0.032, 0.102, 0.030]}
+    - {name: fingers, center: [0.0, 0.0, -0.0165], half: [0.011, 0.009, 0.0265], fingers: true}
+  max_force_n: 70.0                                     # Franka Hand continuous grasp force
+  controller: fr3_gripper
+  action: /fr3_gripper/gripper_cmd                      # control_msgs/GripperCommand (ros2_control)

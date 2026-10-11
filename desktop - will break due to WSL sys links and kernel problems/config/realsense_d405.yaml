@@ -1,0 +1,32 @@
+# realsense2_camera parameters for the REAL D405 on the wrist (eye-in-hand; config/camera_d405.yaml), started by
+# bringup with camera:=local when the robot profile has a wrist_camera (the camera on this PC's USB, via usbipd -> WSL).
+# Resulting topics match the sim's: /wrist_camera/camera/color/image_raw, .../color/camera_info,
+# /wrist_camera/camera/aligned_depth_to_color/image_raw (16UC1, mm).
+#
+# TWO RealSense cameras on one PC: each driver must open ITS camera. device_type is a regular expression on the
+# device name: d405 here, d435 in realsense_d435i.yaml. Or pin the units: serial_no: "_<serial>" (the leading _
+# keeps it a string; rs-enumerate-devices -s lists the serials).
+camera_name: camera
+camera_namespace: wrist_camera
+device_type: d405
+# the frame names in the image headers: <camera_name>_color_optical_frame. The default ("camera") is the FIXED camera's
+# frame -- the wrist map then put every wrist point 48 cm up where the D435i hangs (found on the real Jetson).
+camera_name: wrist_camera
+# the desk's units (2026-10-11, fw 5.15.1.55): D405 serial 260522271385, D435i 263122074692 (to pin: serial_no: "_260522271385")
+# 640x360: a native D405 mode, the size of the sim's wrist camera (camera_d405.yaml). 15 fps: two cameras through
+# usbipd share one USB link (the close look takes ONE frame).
+depth_module.depth_profile: 640x360x15
+depth_module.color_profile: 640x360x15       # the D405's color comes from its depth module (left imager)
+rgb_camera.color_profile: 640x360x15         # (older driver versions name it here; the unused one is ignored)
+align_depth.enable: true
+enable_sync: true
+enable_color: true
+enable_depth: true
+enable_infra1: false
+enable_infra2: false
+pointcloud.enable: false
+# Depth units: the D405 defaults to 0.1 mm per count, everything here reads 16UC1 as MILLIMETRES (REP 118; the sim
+# and the D435i). If the wrist check (tools/wrist_check.py: desk height) is 10x off, this option didn't take.
+depth_module.depth_units: 0.001
+publish_tf: false                 # camera_tf_node publishes gripper_link -> wrist_camera_link -> optical (calibration)
+initial_reset: true

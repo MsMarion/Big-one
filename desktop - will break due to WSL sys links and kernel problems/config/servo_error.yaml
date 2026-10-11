@@ -1,0 +1,36 @@
+# Servo (joint) errors the SIM can add, like a real hobby-servo arm (pnp_core/servo_error.py; docs/learning/17_so101.md
+# "Servo errors"). Off unless asked for:  bringup servo_error:=typical   /   .\demo.ps1 ... -ServoError typical
+# Only the arm joints get errors (not the gripper). Offsets are drawn per joint from +- offset_deg with `seed` (the same
+# "arm" every run; change the seed for another one) unless offsets_deg lists them.
+#
+#   offset_deg             calibration (homing) error per joint                       invisible to the encoders
+#   deadband_deg           the servo's dead zone: it stops short, on the side it came from
+#   compliance_deg_per_nm  flex of horn + printed links under gravity [deg per N m]    invisible to the encoders
+#                          (SO-101 shoulder: ~0.54 N m reaching straight out, ~0.4 N m at the home "candle")
+#   noise_deg, quantum_deg encoder noise, resolution (STS3215: 12 bit = 0.088 deg)
+#
+# These are ESTIMATES for an STS3215 SO-101, not measurements: measure the real arm (tools/arm_accuracy_check.py)
+# and set a profile from it.
+profiles:
+  none: {}
+  typical:              # a carefully calibrated arm
+    seed: 1
+    offset_deg: 1.0
+    deadband_deg: 0.3
+    compliance_deg_per_nm: 2.0
+    noise_deg: 0.03
+    quantum_deg: 0.088
+  worn:                 # sloppy calibration, loose horns
+    seed: 2
+    offset_deg: 2.5
+    deadband_deg: 0.8
+    compliance_deg_per_nm: 5.0
+    noise_deg: 0.06
+    quantum_deg: 0.088
+  twin:                 # the REAL SO-101 on the plate (config/scenes/so101_plate.yaml): its fitted joint offsets as the
+    seed: 3             # sim arm's errors; deadband from the measured backlash (~1 mm at the jaw: arm_accuracy_check)
+    offsets_from: config/calibration/so101_plate/joint_offsets_real.yaml
+    deadband_deg: 0.3
+    compliance_deg_per_nm: 2.0
+    noise_deg: 0.03
+    quantum_deg: 0.088

@@ -1,0 +1,11 @@
+# Refine the target object's 6-D pose with a close-up view from the WRIST camera (D405), starting from the current
+# estimate (pnp_perception/pose_estimator_node.py, docs/learning/14_wrist_camera.md).
+geometry_msgs/PoseStamped initial    # starting pose in the base frame (empty frame_id: the node's current pose)
+uint8 iterations                     # refine passes (0 = the node's default)
+float32 timeout_s                    # wait this long for a wrist frame taken AFTER the request (0 = 2 s)
+---
+bool success
+string message
+geometry_msgs/PoseStamped pose       # refined pose, base frame
+float64 correction_m                 # |refined - initial| position
+float64 correction_deg               # rotation between initial and refined

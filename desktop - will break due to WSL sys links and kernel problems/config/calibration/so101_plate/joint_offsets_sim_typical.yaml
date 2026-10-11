@@ -1,0 +1,21 @@
+# Joint offset calibration (tools/fit_joint_offsets.py): true joint angle - encoder angle, for the
+# hardware this file is named after. Bringup folds it into the robot description (restart the stack).
+offsets_deg:
+  shoulder_pan: -0.0703
+  shoulder_lift: 1.5577
+  elbow_flex: 0.3355
+  wrist_flex: 0.1144
+  wrist_roll: -0.37
+std_deg:
+  shoulder_pan: 0.0269
+  shoulder_lift: 0.1031
+  elbow_flex: 0.0877
+  wrist_flex: 0.0403
+  wrist_roll: 0.0411
+date: '2026-10-11T12:26:33'
+reference: fixed_camera
+views: 23
+board_rms_mm:
+  before: 5.321
+  after: 0.704
+samples: data/calibration/arm_accuracy_20261011_122554.json

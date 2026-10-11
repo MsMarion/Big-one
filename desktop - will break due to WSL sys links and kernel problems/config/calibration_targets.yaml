@@ -1,0 +1,36 @@
+# Calibration targets (docs/learning/16_calibration.md). The same definitions drive the printed boards, the sim's
+# textured boards (sim/scene.py) and the detector (pnp_core/calibration.py).
+#
+# ChArUco = a chessboard with an ArUco marker in every white square: sub-pixel corners (precision) + IDs (works
+# partly hidden / at steep angles). Board frame (OpenCV): origin at a board corner, x along squares_x, y along
+# squares_y, z INTO the board: a camera sees the printed face from the board's -z side.
+# Marker IDs must not overlap between boards (first_id), so a camera never confuses them.
+# REAL boards: print at 100 % (tools/make_calibration_targets.py writes the images with the scale), glue to
+# something rigid and flat, and MEASURE square_m with calipers; that measured value goes here.
+
+hand_board:            # held by the gripper: the FIXED camera (eye-to-hand) calibration target
+  dictionary: DICT_4X4_50
+  squares_x: 5
+  squares_y: 4
+  square_m: 0.055      # 275 x 220 mm (A3). Sized for the fixed camera ~0.7 m away at 640x480: a marker CELL is
+  marker_m: 0.044      # 44/6 = 7.3 mm ~ 6 px there. 45 mm squares (4 px cells at 0.9 m) lost most markers.
+  first_id: 0
+  # how the gripper holds it (the board CENTER in the hand frame fr3_hand: z toward the fingertips, y = finger
+  # travel). Clamped between the fingers: the plate lies in the hand's x-z plane, the printed face toward +y.
+  # (Its exact pose in the hand doesn't matter: the calibration solves for it. This is where the sim puts it.)
+  mount: {parent: fr3_hand, center: [0.0, 0.0, 0.225], x_axis: [1, 0, 0], y_axis: [0, 0, 1]}
+
+table_board:           # lying on the table: the WRIST camera (eye-in-hand) calibration target + cross-camera check
+  dictionary: DICT_4X4_50
+  squares_x: 6
+  squares_y: 4
+  square_m: 0.045      # 270 x 180 mm (A4). For the D405 (640x360) at 0.24-0.36 m: 35/6 = 5.8 mm cells ~ 6.5 px.
+  marker_m: 0.035      # (30 mm squares, ~4 px cells, lost most markers)
+  first_id: 20
+  sim_pose: {xy: [0.55, -0.10], yaw_deg: 0.0}     # where the sim puts it (the solver doesn't know this)
+
+apriltags:             # fixed fiducials on the table: the drift monitor watches them with the fixed camera
+  dictionary: DICT_APRILTAG_36h11
+  size_m: 0.080        # black square edge length
+  tags:
+    - {id: 0, sim_xy: [0.78, 0.0], sim_yaw_deg: 0.0}   # fully in the fixed camera's view, beyond the can / goal regions

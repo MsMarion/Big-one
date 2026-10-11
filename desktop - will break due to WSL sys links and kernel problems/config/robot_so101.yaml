@@ -1,0 +1,163 @@
+# SO-101 follower arm (TheRobotStudio / Hugging Face LeRobot): robot profile #2 (docs/plans/so101_lego_cell.md).
+# Same keys as robot_fr3.yaml; nothing in code should hardcode SO-101 names either.
+# The description: the official URDF + meshes (robots/so101/fetch_description.sh, pinned commit) with a D405 wrist
+# holder in place of the stock wrist-roll follower (same fixed jaw) and the D405 on it: robots/so101/wrist_camera/
+# (user-supplied, README there). Without the camera: description.urdf = robots/so101/description/so101_new_calib.urdf,
+# sim.usd = models/so101/so101.usd, wrist_camera: null, no wrist_camera_mount.
+name: so101
+
+# Intel RealSense D405 on the wrist (eye-in-hand), on the printed holder. Camera file = intrinsics, topics, frames;
+# the mount is this arm's (pnp_core/wrist.py, docs/learning/17_so101.md "Wrist camera").
+wrist_camera: config/camera_d405.yaml
+wrist_camera_mount:
+  parent: gripper_link
+  # NOMINAL color/depth optical frame in gripper_link, from the CAD: the URDF's d405_camera_mount joint (housing frame
+  # d405_camera_link: z = viewing direction, cover glass at z = 0) composed with housing -> optical =
+  # rotate 180 deg about z (image x = -x_housing, image down = -y_housing: the jaws at the image bottom, image x = the
+  # jaw closing direction) + the left imager (RealSense depth origin) 9 mm toward image-left, ~4 mm behind the glass.
+  # The real unit's mount comes from the wrist calibration (tools/calibrate.py wrist), not from here.
+  xyz: [0.009, -0.070689, -0.021469]
+  rpy: [2.6179939, 0.0, 3.1415927]
+  housing_link: d405_camera_link        # the URDF models the camera (collision box + mesh): MoveIt avoids it
+
+description:
+  # The URDF is generated at launch (pnp_core/robot_description.py): the official URDF with absolute mesh paths +
+  # our TCP link + the ros2_control block. No xacro.
+  urdf: robots/so101/wrist_camera/SO101_D405_URDF/so101_d405_wrist.urdf
+  srdf: robots/so101/so101.srdf
+  # Our TCP, same convention as the FR3's fr3_hand_tcp: z = approach (out of the jaws), y = closing direction
+  # (toward the moving jaw), origin between the jaw pads ~5 mm behind the tips. From the meshes
+  # (docs/learning/17_so101.md): the fixed jaw's inner face is x = 0 of gripper_frame_link, the moving jaw opens
+  # toward -x, the tips end at z = +6 mm. The TCP sits 8 mm off the fixed jaw = the center of a 16 mm brick.
+  tcp: {parent: gripper_frame_link, xyz: [-0.008, 0.0, 0.001], rpy: [0.0, 0.0, 1.5707963]}
+
+sim:
+  usd: models/so101_d405/so101_d405.usd   # generated from the URDF: sim/import_urdf.py (repo-relative path)
+  prim_path: /World/so101
+  base_position: [0.0, 0.0, 0.0024]       # the base's bottom face is 2.4 mm below base_link
+  drive: {stiffness: 400.0, damping: 20.0, max_force: 3.0}   # servo-like position control (STS3215: ~2.9 N m stall)
+  gripper_links: [gripper_link, moving_jaw_so101_v1_link]   # get the high-friction grip material
+  link_root: root_joint                   # the URDF importer puts the links under <prim>/root_joint/...
+  articulation_root: root_joint/root_joint   # ... and the articulation root on the fixed base joint
+  gripper_max_force: 0.5                  # jaw drive torque limit [N m] (~10 N at the pads: plenty for 1-2 g bricks)
+  # the jaws' collision shapes follow their real surfaces (the importer's convex hulls stood ~1.9 mm off the fixed
+  # jaw: bricks were held across a visible gap; sim/scene.py _jaw_collision, tools/jaw_gap_check.py)
+  gripper_collision: {approximation: sdf, sdf_resolution: 256, contact_offset_m: 0.001}
+
+hand_links: [gripper_link, moving_jaw_so101_v1_link, gripper_frame_link, so101_tcp, wrist_link]
+
+frames:
+  base: base_link
+  tcp: so101_tcp
+  flange: gripper_link
+
+# RViz starting view (pnp_core.robot_description.rviz_config): the FR3 view from 2-3 m makes this arm a speck
+rviz_view: {distance: 0.85, focal_point: [0.15, 0.0, 0.05]}
+
+arm:
+  joints: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll]
+  # The "candle": arm straight up, tool ~0.42 m high next to the base: out of the overhead camera's view (searched
+  # with pnp_core/urdf_kin.py: every link behind x = 0.07 m). Elbow + wrist carry ~no gravity torque there; the
+  # shoulder still holds ~0.4 N m (the arm leans back over it; pnp_core/servo_error.py GravityModel).
+  home: [0.0, -1.65, 0.1, 0.0, 0.0]
+  planning_group: arm
+  controller: so101_arm_controller
+  # 5 joints: MoveIt's KDL can't solve full 6-D pose goals for it. Pose goals are solved by our numerical IK
+  # (pnp_core/urdf_kin.py) into joint goals; MoveIt still plans the collision-free path.
+  ik: numeric
+  # URDF limits ("new calib": zero = middle of each joint's range), as on the real arm after LeRobot calibration
+  position_limits:
+    shoulder_pan: [-1.91986, 1.91986]
+    shoulder_lift: [-1.74533, 1.74533]
+    elbow_flex: [-1.69, 1.69]
+    wrist_flex: [-1.65806, 1.65806]
+    wrist_roll: [-2.74385, 2.84121]
+  limit_margin: 0.02
+  max_velocity: 2.0          # rad/s per joint for planning (STS3215 no-load ~4.8 rad/s at 7.4 V: keep margin)
+  max_acceleration: 4.0
+  velocity_scaling: 0.5
+  acceleration_scaling: 0.5
+  speed_profiles:
+    dev:  {free: 0.4, linear: 0.3}
+    fast: {free: 0.8, linear: 0.6}
+
+# straight-line approach / lift above a grasp or place pose [m] (FR3 default: 0.10 / 0.15; too high for this arm)
+grasp_motion: {approach_height_m: 0.04, lift_height_m: 0.045}
+
+gripper:
+  width_offset_m: 0.0         # the jaw reading's bias (a real servo: measure it on a known brick); the grip check subtracts it
+  type: jaw                   # one moving jaw on a revolute joint (the FR3: two mirrored prismatic fingers)
+  joints: [gripper]
+  driven_joint: gripper
+  joint_limits: [-0.17453, 1.74533]   # the jaw joint (URDF): closed .. fully open
+  # Opening between the jaw pads [m] at the grasp depth vs the jaw angle [rad], measured from the meshes
+  # (data analysis in docs/learning/17_so101.md). Monotonic: interpolated both ways.
+  width_table:
+    angle: [-0.17, -0.12, -0.07, -0.02, 0.03, 0.08, 0.13, 0.18, 0.23, 0.28, 0.33, 0.38, 0.43, 0.48, 0.53, 0.58, 0.63]
+    width: [0.0023, 0.0062, 0.0103, 0.0142, 0.018, 0.0216, 0.0252, 0.0289, 0.0325, 0.0361, 0.0393, 0.0425,
+            0.0457, 0.0496, 0.0529, 0.0573, 0.0606]
+  max_width_m: 0.055          # usable opening (beyond ~0.6 rad the tip swings back out of the grasp zone)
+  # The gripper as boxes in the TCP frame (z = approach, y = closing), for pnp_core/reorient.py's "does a turned
+  # hand stay above the table" check (MoveIt checks the real meshes at run time). MEASURED from the collision meshes
+  # (tools/hand_geometry.py --robot so101): the jaws are 48 mm wide along x (+-24 mm); behind them the servo + the
+  # D405 holder reach x -86 mm.
+  hand_boxes:
+    - {name: body,    center: [-0.031, -0.0025, -0.080], half: [0.055, 0.033, 0.040]}
+    - {name: fingers, center: [0.0, 0.0, -0.017],      half: [0.024, 0.014, 0.023], fingers: true}
+  # The same hand, finer: one box per 10 mm band behind the tips, the part fixed to the wrist and the moving jaw
+  # (shifted with the opening). pnp_core/pickability.py tests these against the obstacle points: the coarse boxes
+  # above missed the gripper body's wedge on the fixed-jaw side (it reaches y -26 mm 2-3 cm behind the tips) and
+  # a pick beside a cube hit it. Regenerate after a gripper / mesh change:
+  hand_bands:            # tools/hand_geometry.py --robot so101 --width 0.032 --bands-yaml (TCP frame [m]: [z_hi, z_lo, x_lo, x_hi, y_lo, y_hi])
+    ref_width_m: 0.032
+    fixed:
+      - [0.01, 0.0, -0.0044, 0.0044, -0.0149, -0.008]
+      - [0.0, -0.01, -0.0067, 0.0067, -0.0179, -0.008]
+      - [-0.01, -0.02, -0.0076, 0.0076, -0.0219, -0.01]
+      - [-0.02, -0.03, -0.0083, 0.0083, -0.0257, -0.0117]
+      - [-0.03, -0.04, -0.0092, 0.0092, -0.0294, -0.0117]
+      - [-0.04, -0.05, -0.0107, 0.0107, -0.0325, -0.0134]
+      - [-0.05, -0.06, -0.0142, 0.0142, -0.0353, -0.0134]
+      - [-0.06, -0.07, -0.023, 0.023, -0.0353, 0.0303]
+      - [-0.07, -0.08, -0.024, 0.024, -0.0353, 0.0303]
+      - [-0.08, -0.09, -0.024, 0.024, -0.0353, 0.0303]
+      - [-0.09, -0.1, -0.0859, 0.0361, -0.0353, 0.0299]
+      - [-0.1, -0.11, -0.0776, 0.036, -0.016, 0.0157]
+      - [-0.11, -0.12, -0.0248, 0.0281, -0.0164, 0.0203]
+      - [-0.12, -0.13, -0.0273, 0.0281, -0.0164, 0.0203]
+      - [-0.13, -0.14, -0.0273, 0.0361, -0.0168, 0.015]
+    moving:
+      - [0.01, 0.0, -0.005, 0.005, 0.0248, 0.0322]
+      - [0.0, -0.01, -0.0066, 0.0067, 0.024, 0.0346]
+      - [-0.01, -0.02, -0.0073, 0.0076, 0.0238, 0.0369]
+      - [-0.02, -0.03, -0.008, 0.0082, 0.0225, 0.0364]
+      - [-0.03, -0.04, -0.0088, 0.009, 0.0197, 0.0352]
+      - [-0.04, -0.05, -0.0108, 0.0111, 0.0174, 0.0344]
+      - [-0.05, -0.06, -0.0205, 0.0208, 0.0135, 0.0329]
+      - [-0.06, -0.07, -0.0239, 0.0241, 0.012, 0.032]
+      - [-0.07, -0.08, -0.0239, 0.0241, 0.0101, 0.0305]
+      - [-0.08, -0.09, -0.0239, 0.0241, 0.0111, 0.0291]
+  open_margin_m: 0.008        # open to object width + this per side (a fully open jaw swings 4 cm sideways)
+  fixed_jaw_y_m: -0.008       # the fixed jaw's inner face in TCP coordinates (y): a held object of width w sits at
+                              # y = fixed_jaw_y + w/2 (the moving jaw pushes it against the fixed one)
+  fixed_jaw_clearance_m: 0.004   # the fixed jaw comes down this far beside the object (flush: it landed ON it)
+  max_force_n: 10.0
+  controller: so101_gripper
+  action: /so101_gripper/gripper_cmd
+
+# --- the real arm (bringup sim:=false hardware:=real): pnp_manipulation/so101_bridge.py, docs/learning/17_so101.md ---
+real:
+  bridge: {package: pnp_manipulation, executable: so101_bridge}
+  port: /dev/ttyACM0                 # the servo board's USB serial (Waveshare / Feetech URT); into WSL with usbipd
+  baud: 1000000
+  motor_ids: {shoulder_pan: 1, shoulder_lift: 2, elbow_flex: 3, wrist_flex: 4, wrist_roll: 5, gripper: 6}   # LeRobot's
+  # LeRobot calibration file of THIS arm (lerobot-calibrate --robot.type=so101_follower ...; copied here), or the same
+  # fields in YAML from tools/so101_servo_setup.py. The example file is a placeholder for mock runs only.
+  calibration: config/calibration/so101_desk/so101_follower.json
+  rate_hz: 50
+  max_speed_rad_s: 1.0
+  hold_ki: 2.0                       # outer integral loop: a loaded joint REACHES its goal (pnp_core/servo_hold.py; 0 = off)
+  hold_max_deg: 5.0                  # its correction cap per joint
+  p_gain: 32                         # servo position gain for the arm joints at torque-on (LeRobot leaves 16: ~2x the sag)               # goal slew limit (the bridge's own safety layer, below MoveIt's limits)
+  gripper_speed_rad_s: 2.0
+  gripper_torque_limit: 400          # 40 % of the jaw servo's torque: holds a brick, doesn't crush it or cook the servo

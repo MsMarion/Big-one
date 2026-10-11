@@ -1,0 +1,35 @@
+# Camera container for the ORIGINAL Jetson Nano (JetPack 4.6.x = L4T r32.7, Ubuntu 18.04 host, arm64).
+#
+# JetPack 4 has no ROS 2 apt packages, so this starts from NVIDIA's community ROS 2 Humble image for L4T r32.7
+# (github.com/dusty-nv/jetson-containers) and BUILDS librealsense + realsense-ros from source. Expect ~1-2 h on a
+# Nano (use a swap file: 4 GB RAM is tight). UNTESTED on hardware in this project - verify the base image tag
+# first:  docker pull dustynv/ros:humble-ros-base-l4t-r32.7.1
+#
+# librealsense is built with the RSUSB backend (userspace libusb): no kernel patches needed on the Jetson.
+FROM dustynv/ros:humble-ros-base-l4t-r32.7.1
+
+ARG LIBREALSENSE_VER=v2.55.1
+ARG REALSENSE_ROS_VER=4.55.1
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git cmake build-essential libssl-dev libusb-1.0-0-dev pkg-config libudev-dev usbutils \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 -b ${LIBREALSENSE_VER} https://github.com/IntelRealSense/librealsense.git /tmp/librealsense && \
+    cd /tmp/librealsense && mkdir build && cd build && \
+    cmake .. -DFORCE_RSUSB_BACKEND=ON -DBUILD_EXAMPLES=OFF -DBUILD_GRAPHICAL_EXAMPLES=OFF -DBUILD_WITH_CUDA=OFF \
+             -DCMAKE_BUILD_TYPE=Release && \
+    make -j"$(nproc)" && make install && rm -rf /tmp/librealsense
+
+# realsense-ros + image_transport_plugins from source (the base image's ROS is built from source too)
+RUN mkdir -p /opt/rs_ws/src && cd /opt/rs_ws/src && \
+    git clone --depth 1 -b ${REALSENSE_ROS_VER} https://github.com/IntelRealSense/realsense-ros.git && \
+    git clone --depth 1 -b humble https://github.com/ros-perception/image_transport_plugins.git && \
+    source /opt/ros/humble/install/setup.bash && cd /opt/rs_ws && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+      --packages-up-to realsense2_camera compressed_image_transport compressed_depth_image_transport
+
+ENV ROS_DOMAIN_ID=42
+COPY jetson/camera.launch.py /jetson/camera.launch.py
+CMD ["bash", "-c", "source /opt/rs_ws/install/setup.bash && ros2 launch /jetson/camera.launch.py"]

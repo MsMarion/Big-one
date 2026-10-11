@@ -1,0 +1,52 @@
+# The robot model + TF only, from /robot_description and /joint_states (no MoveIt panel: works over the zenoh link
+# to the Jetson, where only topics cross). + a see-through ghost from tools/show_pose.py. Mirror check: docs/learning/22_jetson_d405.md, step 4.
+#   rviz2 -d /repo/tools/rviz/robot_only.rviz
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.05
+      Plane Cell Count: 20
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Durability Policy: Transient Local
+    - Class: rviz_default_plugins/RobotModel
+      Name: target pose (ghost)
+      Enabled: true
+      Alpha: 0.35
+      TF Prefix: target
+      Description Source: Topic
+      Description Topic:
+        Value: /target/robot_description
+        Durability Policy: Transient Local
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: false
+    - Class: rviz_default_plugins/Image
+      Name: wrist camera
+      Enabled: true
+      Topic:
+        Value: /wrist_camera/camera/color/image_raw
+        Reliability Policy: Best Effort
+  Global Options:
+    Fixed Frame: base_link
+    Frame Rate: 30
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 0.9
+      Focal Point: {X: 0.15, Y: 0.0, Z: 0.15}
+      Pitch: 0.45
+      Yaw: 2.4
+Window Geometry:
+  Width: 1400
+  Height: 900

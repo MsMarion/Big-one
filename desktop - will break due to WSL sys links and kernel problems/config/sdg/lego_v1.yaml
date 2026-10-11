@@ -1,0 +1,5 @@
+# Training set for the LEGO detector, scaled up from the inspected v0.
+base: lego_v0.yaml
+name: lego_v1
+seed: 21
+num_frames: 2500

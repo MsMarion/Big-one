@@ -1,0 +1,47 @@
+name: lego_seg_v1
+created_utc: '2026-10-11T09:22:23+00:00'
+weights: models/lego_seg_v1.pt
+base_model: yolo11n-seg.pt
+ultralytics: 8.4.174
+classes:
+- lego_2x4
+- lego_2x2
+- lego_1x2
+train:
+  dataset: lego_v1
+  dataset_sources:
+  - raw: data/raw/lego_v1
+    sdg_name: lego_v1
+    seed: 21
+  dataset_stats:
+    images: 2500
+    instances: 8033
+    negative_images: 137
+    skipped_small: 32
+    skipped_occluded: 0
+    instance_area_px_p5_p50_p95:
+    - 202
+    - 447
+    - 996
+  epochs_requested: 60
+  imgsz: 640
+  batch: 32
+  minutes: 19.1
+  run_dir: /data/yolo_runs/lego_seg_v1
+metrics:
+  val:
+    mask_mAP50: 0.9933
+    mask_mAP50_95: 0.7658
+    box_mAP50_95: 0.9235
+    precision: 0.99
+    recall: 0.9735
+  test:
+    mask_mAP50: 0.9938
+    mask_mAP50_95: 0.7581
+    box_mAP50_95: 0.9175
+    precision: 0.983
+    recall: 0.9752
+  test_dataset: lego_test
+gate:
+  test_mask_mAP50_95_min: 0.8
+  passed: false

@@ -1,0 +1,55 @@
+# Hand-eye calibration of the d435i (tools/calibrate.py fixed). camera_tf_node publishes
+# T_parent_optical as base_link -> camera_color_optical_frame. history: earlier results, newest first.
+camera: d435i
+parent: base_link
+optical_frame: camera_color_optical_frame
+T_parent_optical:
+  xyz: [0.578616, -0.025872, 0.344594]
+  quat_xyzw: [-0.6897536, -0.5989188, 0.301518, 0.2731723]
+date: '2026-10-11T13:43:07'
+method: locate (desk targets)
+points: 36
+reprojection_px: 0.814
+targets: [AprilTag 1, AprilTag 2, AprilTag 3, AprilTag 4, AprilTag 5, AprilTag 6, AprilTag 7, AprilTag 8, AprilTag 9]
+history:
+- date: '2026-10-11T23:31:51'
+  T_parent_optical:
+    xyz: [0.528759, 0.012117, 0.330768]
+    quat_xyzw: [-0.6658209, -0.6646944, 0.2551037, 0.2231279]
+  method: locate (desk targets)
+  reprojection_px: 0.167
+- date: '2026-10-11T19:34:19'
+  T_parent_optical:
+    xyz: [-0.06673, -0.008166, 0.355154]
+    quat_xyzw: [-0.6629932, 0.6851165, -0.2012818, 0.2248134]
+  method: locate (desk targets)
+  reprojection_px: 0.169
+apriltag_reference:
+  '7':
+    xyz: [0.339843, 0.151985, -0.009548]
+    quat_xyzw: [-0.99995, 0.007577, -0.0006373, 0.0065003]
+  '9':
+    xyz: [0.306379, -0.002994, -0.010346]
+    quat_xyzw: [-0.9991133, 0.0421015, -8.08e-05, 0.0001145]
+  '8':
+    xyz: [0.279152, -0.167695, -0.003484]
+    quat_xyzw: [-0.9997586, 0.0209389, -0.0065363, 0.0012564]
+  '5':
+    xyz: [0.13341, 0.275144, -0.01045]
+    quat_xyzw: [-0.999378, 0.0334139, 0.0106101, 0.0038127]
+  '6':
+    xyz: [0.105224, -0.260965, -0.004825]
+    quat_xyzw: [0.9998008, -0.0176646, -0.0018074, 0.0091181]
+  '3':
+    xyz: [0.047945, 0.1645, -0.003703]
+    quat_xyzw: [-0.9988327, 0.0471665, 0.0014876, 0.0103158]
+  '1':
+    xyz: [-0.032827, 0.299087, -0.008648]
+    quat_xyzw: [0.9995636, -0.0289087, -0.0043784, 0.0042]
+  '4':
+    xyz: [-0.036527, -0.125883, -0.004855]
+    quat_xyzw: [0.9981923, -0.0595483, -0.000532, 0.0081153]
+  '2':
+    xyz: [-0.076405, -0.281466, -0.003415]
+    quat_xyzw: [0.9995809, -0.0272599, 0.0007849, 0.0097081]
+apriltag_reference_date: '2026-10-11T13:44:45'

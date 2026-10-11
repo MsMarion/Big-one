@@ -1,0 +1,61 @@
+# Hand-eye calibration of the d435i (tools/calibrate.py fixed). camera_tf_node publishes
+# T_parent_optical as base_link -> camera_color_optical_frame. history: earlier results, newest first.
+camera: d435i
+parent: base_link
+optical_frame: camera_color_optical_frame
+T_parent_optical:
+  xyz: [0.524889, 0.016282, 0.33084]
+  quat_xyzw: [-0.6675861, -0.6620212, 0.259302, 0.2209505]
+date: '2026-10-11T12:13:39'
+method: locate (desk targets)
+points: 32
+reprojection_px: 0.997
+targets: [AprilTag 1, AprilTag 2, AprilTag 4, AprilTag 5, AprilTag 6, AprilTag 7, AprilTag 8, AprilTag 9]
+sim_truth_error: {pos_mm: 0.33, rot_deg: 0.1196}
+sim_profile: realistic
+history:
+- date: '2026-10-11T12:08:31'
+  T_parent_optical:
+    xyz: [0.524919, 0.016294, 0.330923]
+    quat_xyzw: [-0.667605, -0.6620291, 0.25927, 0.2209075]
+  method: locate (desk targets)
+  reprojection_px: 1.006
+  sim_truth_error: {pos_mm: 0.295, rot_deg: 0.1257}
+  sim_profile: realistic
+- date: '2026-10-11T11:37:17'
+  T_parent_optical:
+    xyz: [0.524801, 0.016292, 0.330828]
+    quat_xyzw: [-0.6676227, -0.6619997, 0.2592766, 0.2209341]
+  method: locate (desk targets)
+  reprojection_px: 0.995
+  sim_truth_error: {pos_mm: 0.405, rot_deg: 0.1239}
+  sim_profile: realistic
+apriltag_reference:
+  '9':
+    xyz: [0.327574, -0.000246, -0.006829]
+    quat_xyzw: [-0.9999995, 8.64e-05, 0.0004342, 0.0009377]
+  '7':
+    xyz: [0.296914, 0.12676, -0.007235]
+    quat_xyzw: [-0.9999957, 0.0004124, -0.002638, 0.0012463]
+  '8':
+    xyz: [0.297028, -0.152424, -0.006994]
+    quat_xyzw: [-0.9999971, 0.0007451, -0.0015353, 0.0017174]
+  '5':
+    xyz: [0.102021, 0.188293, -0.008763]
+    quat_xyzw: [-0.999991, -0.0006087, -0.0041725, 0.0004511]
+  '6':
+    xyz: [0.09922, -0.221065, -0.01099]
+    quat_xyzw: [0.9999926, -0.0035006, 0.0016177, 0.0001377]
+  '3':
+    xyz: [-0.011093, 0.122159, -0.009348]
+    quat_xyzw: [-0.9999813, -0.0002446, -0.0061084, 0.0003443]
+  '1':
+    xyz: [-0.045755, 0.225855, -0.011693]
+    quat_xyzw: [-0.9999876, 0.0003701, -0.0043058, 0.0024731]
+  '4':
+    xyz: [-0.012463, -0.133554, -0.010306]
+    quat_xyzw: [-0.9999897, -0.0003509, -0.0045321, 0.0001151]
+  '2':
+    xyz: [-0.063579, -0.279327, -0.013109]
+    quat_xyzw: [0.999986, 0.0009774, 0.0039725, 0.0033463]
+apriltag_reference_date: '2026-10-11T12:13:47'

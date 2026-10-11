@@ -1,0 +1,28 @@
+# What a session recording holds (tools/record_session.sh) and what the failure ring buffer keeps (bringup
+# bag_buffer:=true, snapshot written by pick_place_node when a task fails). Bags: mcap, under /data/bags/.
+# Replay: ros2 bag play /data/bags/<name>   (docs: pnp_core/trials.py artifacts table points at each bag)
+session_topics:
+  # overhead D435i (color + depth aligned to color share the color camera_info)
+  - /camera/camera/color/image_raw
+  - /camera/camera/color/camera_info
+  - /camera/camera/aligned_depth_to_color/image_raw
+  # wrist D405
+  - /wrist_camera/camera/color/image_raw
+  - /wrist_camera/camera/color/camera_info
+  - /wrist_camera/camera/aligned_depth_to_color/image_raw
+  # where everything is
+  - /tf
+  - /tf_static
+  - /joint_states
+  # what perception and the task thought
+  - /perception/detections
+  - /perception/pose_status
+  - /perception/focus
+  - /pick_place/grasp
+  - /calibration/status
+  - /pick_place/_action/feedback       # hidden topics: recorded with --include-hidden-topics
+  - /pick_place/_action/status
+
+ring:
+  # ~53 MB/s of camera images in the sim: 320 MB holds the last ~6 s before a failure
+  max_cache_bytes: 320000000

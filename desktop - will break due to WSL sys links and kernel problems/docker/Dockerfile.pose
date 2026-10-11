@@ -1,0 +1,65 @@
+# pnp:pose = pnp:jazzy + what FoundationPose (6-D object pose, NVlabs research code) needs. Phase 6 / docs/learning/10_6d_pose.md
+#
+# Why a second Python environment (/opt/fp_venv) instead of adding to /opt/pnp_venv:
+#   FoundationPose needs NumPy 2; ROS Jazzy's cv_bridge (used by the YOLO detector in pnp_venv) is built against
+#   NumPy 1. The two stacks stay separate; they talk over ROS topics.
+# Why the CUDA 12.8 *toolkit*: nvdiffrast (FoundationPose's GPU renderer) and PyTorch3D compile CUDA code, and the
+#   RTX 5090 (Blackwell, sm_120) needs CUDA 12.8+ to compile for. TORCH_CUDA_ARCH_LIST=12.0 builds only for it.
+#
+# The FoundationPose source + the NGC ONNX networks live in models/foundationpose/ (bind-mounted, gitignored).
+# Its small C++ helper (mycpp) is built at runtime into that folder: setup/fp_setup.sh.
+#
+# Build (from WSL):  bash ~/pnp_repo/docker/build_pose.sh
+FROM pnp:jazzy
+
+ARG DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# --- CUDA 12.8 toolkit (nvcc + headers) from NVIDIA's apt repo; C++ deps of FoundationPose's mycpp ------------------
+RUN curl -fsSL -o /tmp/cuda-keyring.deb \
+      https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i /tmp/cuda-keyring.deb && rm /tmp/cuda-keyring.deb && \
+    apt-get update && apt-get install -y --no-install-recommends \
+      cuda-toolkit-12-8 \
+      build-essential cmake git libboost-system-dev libboost-program-options-dev libeigen3-dev pybind11-dev \
+      libegl1 libgl1 libglu1-mesa libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CUDA_HOME=/usr/local/cuda-12.8 \
+    TORCH_CUDA_ARCH_LIST="12.0" \
+    FORCE_CUDA=1 \
+    MAX_JOBS=8
+ENV PATH=$PATH:$CUDA_HOME/bin
+
+# --- the FoundationPose Python environment ---------------------------------------------------------------------
+RUN python3 -m venv /opt/fp_venv && \
+    /opt/fp_venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel ninja
+# same PyTorch as pnp_venv (2.11, CUDA 12.8 wheels: Blackwell support)
+RUN /opt/fp_venv/bin/pip install --no-cache-dir torch==2.11.0 torchvision --index-url https://download.pytorch.org/whl/cu128
+COPY models/foundationpose/FoundationPose/requirements.txt /tmp/fp_requirements.txt
+RUN /opt/fp_venv/bin/pip install --no-cache-dir -r /tmp/fp_requirements.txt \
+      onnx onnxruntime-gpu pybind11 einops
+# GPU extensions, compiled here for sm_120 (needs torch already installed: --no-build-isolation)
+RUN /opt/fp_venv/bin/pip install --no-cache-dir --no-build-isolation \
+      "git+https://github.com/facebookresearch/pytorch3d.git"
+RUN /opt/fp_venv/bin/pip install --no-cache-dir --no-build-isolation \
+      "git+https://github.com/NVlabs/nvdiffrast.git"
+# record exactly what got installed (reproducibility: the git installs above are unpinned)
+RUN /opt/fp_venv/bin/pip freeze > /opt/fp_venv/pip_freeze.txt && \
+    /opt/fp_venv/bin/python -c "import torch, numpy, pytorch3d, nvdiffrast, onnxruntime as o; \
+      print('torch', torch.__version__, 'numpy', numpy.__version__, 'pytorch3d', pytorch3d.__version__, \
+            'nvdiffrast', nvdiffrast.__version__, 'onnxruntime', o.__version__, o.get_available_providers())"
+
+# Pin the CUDA-12 builds (own layer, so changing it doesn't redo the 30-min PyTorch3D compile above): the newest
+# onnxruntime-gpu (1.30) and warp-lang (1.18) on PyPI target CUDA 13 and need a CUDA-13 driver; this PC's driver
+# (576.88) supports CUDA 12.9. Found by setup/fp_setup.sh's self-check ("libcublasLt.so.13", "driver 12.9").
+RUN /opt/fp_venv/bin/pip install --no-cache-dir "onnxruntime-gpu==1.23.2" "warp-lang==1.9.1" && \
+    /opt/fp_venv/bin/pip freeze > /opt/fp_venv/pip_freeze.txt
+
+# TensorRT 10.x for ONNX Runtime's TensorRT engine (ORT 1.23.2 loads libnvinfer.so.10; 11.x won't load). 4.4 GB.
+# The adapter preloads its libraries from site-packages/tensorrt_libs (pnp_perception/foundationpose_onnx.py).
+RUN /opt/fp_venv/bin/pip install --no-cache-dir "tensorrt-cu12==10.13.3.9" && \
+    /opt/fp_venv/bin/pip freeze > /opt/fp_venv/pip_freeze.txt
+
+# nvdiffrast compiles its CUDA kernels on first use: keep that cache in the persistent workspace volume
+ENV TORCH_EXTENSIONS_DIR=/ws/torch_extensions

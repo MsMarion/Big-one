@@ -1,0 +1,50 @@
+# LEGO bricks for the SO-101 desk cell (config/scenes/so101_lego.yaml): 3 classes = 3 brick SHAPES (2x4, 2x2,
+# 1x2); colors are randomized per frame from a LEGO-like palette, so the detector learns shape, not color (the color
+# is read from the mask pixels when sorting by color). v0 = 20 frames to look at before scaling up.
+base: soup_can_v0.yaml
+name: lego_v0
+seed: 20
+num_frames: 20
+scene: config/scenes/so101_lego.yaml
+targets:
+  objects: [lego_2x4, lego_2x2, lego_1x2]
+  count: [0, 6]
+  p_zero: 0.06
+  region: {x: [0.06, 0.34], y: [-0.20, 0.20]}     # the whole visible desk area, not just the pick band
+distractors:
+  objects: [cell_block, cell_wall, cell_tower]      # the cell's obstacle boxes: hard negatives
+  count: [0, 2]
+placement:
+  min_gap_m: 0.004
+  max_tries: 60
+robot:
+  joint_noise_rad: 0.6           # the small arm moves through the view a lot
+  gripper_width_m: [0.0, 0.055]
+camera:
+  position_jitter_m: 0.02
+  look_at_jitter_m: 0.03
+colors:                          # LEGO-like palette (+- small jitter)
+  - [0.80, 0.07, 0.07]
+  - [0.05, 0.25, 0.75]
+  - [0.95, 0.80, 0.05]
+  - [0.10, 0.55, 0.20]
+  - [0.95, 0.95, 0.95]
+  - [0.10, 0.10, 0.10]
+  - [0.95, 0.45, 0.05]
+  - [0.60, 0.60, 0.62]
+lights:                          # a close-up of a light desk: the FR3 table's ranges blew it out
+  dome_intensity: [30, 160]
+  key_intensity: [150, 900]
+  extra_spheres: [0, 1]
+  sphere_intensity: [500, 4000]
+table:
+  colors:
+    - [0.55, 0.45, 0.35]
+    - [0.75, 0.75, 0.75]
+    - [0.25, 0.25, 0.27]
+    - [0.85, 0.82, 0.70]
+    - [0.92, 0.92, 0.90]
+    - [0.35, 0.45, 0.55]
+    - [0.15, 0.15, 0.16]
+    - [0.40, 0.30, 0.22]
+  jitter: 0.08

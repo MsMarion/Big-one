@@ -1,0 +1,53 @@
+# FoundationPose (6-D object pose) with the NGC ONNX networks (foundationpose:1.0.1_onnx) instead of the PyTorch
+# checkpoints. docs/learning/10_6d_pose.md
+#
+# The ONNX files contain only the two networks. The numbers that turn their outputs into pose updates (and shape
+# their inputs) normally come from NVlabs' weights/<run>/config.yml. These values are from NVIDIA's Apache-2.0
+# Isaac ROS config (isaac_ros_foundationpose/config/foundationpose_model_config.yaml):
+#   resized_image_height/width: 160, max_hypothesis: 252, refine/score_crop_ratio: 1.2,
+#   rot_normalizer: 0.349065850398865 (= 20 deg), trans_normalizer: [0.02, 0.02, 0.05]
+# and the input layout from inspecting the ONNX graphs: input1/input2 = (B, 160, 160, 6) channels-last,
+# 6 = RGB (0..1) + XYZ (relative to the hypothesis' translation, divided by the object radius = normalize_xyz).
+code_dir: models/foundationpose/FoundationPose      # NVlabs source (research license), gitignored
+onnx:
+  refine: models/foundationpose/refine_model.onnx   # outputs: output1 (B,3), output2 (B,3)
+  score: models/foundationpose/score_model.onnx     # outputs: output1 (1,B) score logits
+  refine_outputs: [trans, rot]                      # which ONNX output is which (verified against sim ground truth)
+refine:
+  input_resize: [160, 160]
+  crop_ratio: 1.2
+  c_in: 6
+  normalize_xyz: true
+  trans_rep: tracknet
+  rot_rep: axis_angle
+  rot_normalizer: 0.349065850398865
+  trans_normalizer: [0.019999999552965164, 0.019999999552965164, 0.05000000074505806]
+  use_normal: false
+  use_mask: false
+  use_BN: false
+  n_view: 1
+  zfar: .inf
+  normal_uint8: false
+score:
+  input_resize: [160, 160]
+  crop_ratio: 1.2
+  c_in: 6
+  normalize_xyz: true
+  use_normal: false
+  use_BN: false
+  zfar: .inf
+backend: tensorrt          # tensorrt (engines built once, cached in trt_cache_dir) | cuda (plain ONNX Runtime CUDA)
+trt_cache_dir: /ws/trt_cache   # persistent workspace volume: engines survive container re-creation
+gpu_mem_limit_gb: 10       # cap for ONNX Runtime's GPU memory per network (the GPU is shared with Isaac Sim)
+refine_chunk: 42           # hypotheses per refine-network call (Isaac ROS: max_batch_size 42); score runs all 252
+iterations:
+  register: 5          # refine steps for the first pose (all 252 hypotheses)
+  track: 2             # refine steps per frame while tracking
+meshes:                # object (config/objects.yaml key) -> textured mesh in the object's own frame
+  tomato_soup_can: models/foundationpose/meshes/tomato_soup_can/mesh.obj
+  cracker_box: models/foundationpose/meshes/cracker_box/mesh.obj
+  # LEGO bricks (the SO-101 cell): generated from the sim's brick geometry, tools/make_brick_meshes.py
+  lego_2x4: models/foundationpose/meshes/lego_2x4/mesh.obj
+  lego_2x2: models/foundationpose/meshes/lego_2x2/mesh.obj
+  lego_1x2: models/foundationpose/meshes/lego_1x2/mesh.obj
+  lego_2x3: models/foundationpose/meshes/lego_2x3/mesh.obj

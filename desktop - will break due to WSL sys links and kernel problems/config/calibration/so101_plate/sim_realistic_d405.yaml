@@ -1,0 +1,11 @@
+# Wrist camera calibration (tools/fit_joint_offsets.py --with-hand-eye). camera_tf_node publishes
+# T_parent_optical as gripper_link -> wrist_camera_color_optical_frame.
+camera: d405
+parent: gripper_link
+optical_frame: wrist_camera_color_optical_frame
+T_parent_optical:
+  xyz: [0.007326, -0.070155, -0.017818]
+  quat_xyzw: [0.0029614, -0.9673042, -0.253601, 0.0005297]
+date: '2026-10-11T12:26:33'
+method: joint fit with the arm offsets (tools/fit_joint_offsets.py --with-hand-eye, reference fixed_camera, 23 views)
+history: []

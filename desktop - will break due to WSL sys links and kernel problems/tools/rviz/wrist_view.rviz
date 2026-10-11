@@ -1,0 +1,81 @@
+# What the WRIST D405 sees and what the map made of it, over the zenoh link to the Jetson (topics only):
+# the live robot, the camera's colored cloud (/wrist_map/cloud: every 4th pixel, 2 Hz), the found objects as their
+# catalog meshes + measured outlines (/wrist_map/markers), the camera image, the flat map. docs/learning/22_jetson_d405.md
+#   rviz2 -d /repo/tools/rviz/wrist_view.rviz       (refresh the objects: ros2 service call /wrist_map/look ...)
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.05
+      Plane Cell Count: 20
+    - Class: rviz_default_plugins/RobotModel
+      Name: robot (live)
+      Enabled: true
+      Alpha: 0.6
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Durability Policy: Transient Local
+    - Class: rviz_default_plugins/PointCloud2
+      Name: D405 cloud
+      Enabled: true
+      Topic:
+        Value: /wrist_map/cloud
+        Reliability Policy: Best Effort
+      Style: Points
+      Size (Pixels): 3
+      Color Transformer: RGB8
+      Decay Time: 0
+    - Class: rviz_default_plugins/MarkerArray
+      Name: found objects (models + outlines)
+      Enabled: true
+      Topic:
+        Value: /wrist_map/markers
+        # Volatile: a latched subscription broke when the Jetson node restarted under it (zenoh); every look republishes
+        Durability Policy: Volatile
+    - Class: rviz_default_plugins/MarkerArray
+      Name: sensors (pose, view, footprint)
+      Enabled: true
+      Topic:
+        Value: /sensors/markers
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: false
+    - Class: rviz_default_plugins/Image
+      Name: D405 color
+      Enabled: true
+      Topic:
+        # rviz2 takes the transport from the topic's last part: only the compressed image crosses the link
+        Value: /wrist_camera/camera/color/image_raw/compressed
+        Reliability Policy: Best Effort
+    - Class: rviz_default_plugins/Image
+      Name: D435i color (fixed)
+      Enabled: true
+      Topic:
+        Value: /camera/camera/color/image_raw/compressed
+        Reliability Policy: Best Effort
+    - Class: rviz_default_plugins/Image
+      Name: flat map (top view)
+      Enabled: true
+      Topic:
+        Value: /wrist_map/topview
+        # Volatile: a latched subscription broke when the Jetson node restarted under it (zenoh); every look republishes
+        Durability Policy: Volatile
+  Global Options:
+    Fixed Frame: base_link
+    Frame Rate: 30
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 0.55
+      Focal Point: {X: 0.24, Y: 0.0, Z: 0.04}
+      Pitch: 0.6
+      Yaw: 3.6
+Window Geometry:
+  Width: 1600
+  Height: 950

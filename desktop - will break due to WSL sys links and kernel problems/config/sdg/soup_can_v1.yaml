@@ -1,0 +1,5 @@
+# Training set v1: same randomization as v0 (inspected), scaled up.
+base: soup_can_v0.yaml
+name: soup_can_v1
+seed: 1
+num_frames: 2000

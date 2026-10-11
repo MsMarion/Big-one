@@ -1,0 +1,13 @@
+* text=auto
+# Scripts executed inside Linux/WSL must keep LF line endings.
+*.sh text eol=lf
+*.bash text eol=lf
+setup/ros_env.sh text eol=lf
+# ROS files read on Linux
+*.py text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+*.launch.py text eol=lf
+# Windows scripts
+*.ps1 text eol=crlf
+*.bat text eol=crlf

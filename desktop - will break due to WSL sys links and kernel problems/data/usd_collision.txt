@@ -1,0 +1,20 @@
+/so101_d405_wrist/root_joint/gripper_link/collisions Xform [] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/sts3215_03a_v1 Xform [] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/sts3215_03a_v1/node_STL_BINARY_ Xform ['PhysicsCollisionAPI', 'PhysicsMeshCollisionAPI'] {'physics:approximation': 'convexDecomposition'}
+/so101_d405_wrist/root_joint/gripper_link/collisions/sts3215_03a_v1/node_STL_BINARY_/Looks Scope [] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/sts3215_03a_v1/node_STL_BINARY_/Looks/DefaultMaterial Material [] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/sts3215_03a_v1/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial Shader ['NodeDefAPI'] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/sts3215_03a_v1/node_STL_BINARY_/mesh Mesh ['MaterialBindingAPI'] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/d405_wrist_holder Xform [] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/d405_wrist_holder/node_STL_BINARY_ Xform ['PhysicsCollisionAPI', 'PhysicsMeshCollisionAPI'] {'physics:approximation': 'convexDecomposition'}
+/so101_d405_wrist/root_joint/gripper_link/collisions/d405_wrist_holder/node_STL_BINARY_/Looks Scope [] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/d405_wrist_holder/node_STL_BINARY_/Looks/DefaultMaterial Material [] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/d405_wrist_holder/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial Shader ['NodeDefAPI'] {}
+/so101_d405_wrist/root_joint/gripper_link/collisions/d405_wrist_holder/node_STL_BINARY_/mesh Mesh ['MaterialBindingAPI'] {}
+/so101_d405_wrist/root_joint/moving_jaw_so101_v1_link/collisions Xform [] {}
+/so101_d405_wrist/root_joint/moving_jaw_so101_v1_link/collisions/moving_jaw_so101_v1 Xform [] {}
+/so101_d405_wrist/root_joint/moving_jaw_so101_v1_link/collisions/moving_jaw_so101_v1/node_STL_BINARY_ Xform ['PhysicsCollisionAPI', 'PhysicsMeshCollisionAPI'] {'physics:approximation': 'convexDecomposition'}
+/so101_d405_wrist/root_joint/moving_jaw_so101_v1_link/collisions/moving_jaw_so101_v1/node_STL_BINARY_/Looks Scope [] {}
+/so101_d405_wrist/root_joint/moving_jaw_so101_v1_link/collisions/moving_jaw_so101_v1/node_STL_BINARY_/Looks/DefaultMaterial Material [] {}
+/so101_d405_wrist/root_joint/moving_jaw_so101_v1_link/collisions/moving_jaw_so101_v1/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial Shader ['NodeDefAPI'] {}
+/so101_d405_wrist/root_joint/moving_jaw_so101_v1_link/collisions/moving_jaw_so101_v1/node_STL_BINARY_/mesh Mesh ['MaterialBindingAPI'] {}

@@ -1,0 +1,106 @@
+# SO-101 on the MOUNTED PLATE with the multi-tag calibration anchor (Tier 0.2, 2026-10-11): so101_plate.yaml, with the
+# board at the user's 3' x 3' (0.914 m) and a set of AprilTags (config/calibration_targets_so101_plate.yaml) + a floor
+# grid, to build and validate the tag layout in the sim before printing it. PLACEHOLDER until measured: the base sits
+# 10 cm from the back edge, centred left-right (so101_plate.yaml's placement). so101_plate.yaml (the real Jetson's
+# scene) stays as it is until the board is confirmed.
+#
+# (so101_plate.yaml header:) SO-101 on the MOUNTED PLATE (2026-10-11): the real cell, and its sim twin.
+# One scene for both: the real arm (Jetson: PNP_SCENE=config/scenes/so101_plate.yaml) and Isaac. Everything the real
+# cell MEASURED is read from its calibration files (config/calibration/so101_plate/), so the twin follows each
+# recalibration with no copying:
+#   the D435i:      camera.mount.from_calibration -> the sim camera sits at the real one's calibrated pose (incl. its
+#                   ~4 deg roll); the robot believes the same pose until the SIM's own calibration replaces it
+#   the wrist D405: config/sim_reality.yaml profile `twin` -> the sim's TRUE D405 = the real unit's calibrated mount
+#                   (5.6 mm / 1.9 deg from the CAD one the robot starts from: the sim calibration has to find it)
+#   the arm:        config/servo_error.yaml profile `twin` -> the real arm's fitted joint offsets as its errors
+# Run the twin:  bringup ... scene:=so101_plate reality:=twin servo_error:=twin (or set_reality.py twin)
+# Coordinates: the robot base frame (base_link).
+name: so101_plate_tags
+robot: so101
+cell: so101_plate                 # calibrations of this cell: config/calibration/so101_plate/
+calibration_targets: config/calibration_targets_so101_plate.yaml
+
+# 4' x 4' x 1/2" plywood. The base is screwed to it near the back edge (the D435i's first frame: the edge just behind
+# the base). The base sits FLAT on the board (the user, 2026-10-11): its top is at z = -2.4 mm, base_link being
+# 2.4 mm above the base's underside (as on the desk scenes). so101_plate.yaml (the real Jetson's scene) still has
+# -18.5 mm, where the uncorrected real arm SAW the plate: that 16 mm is arm calibration error (Tier 0.3).
+# a 5 cm grid painted on the board (sim only, a texture): origin at the base, cm labels every 10 cm, inch ticks;
+# to check the tags, the camera and the board against each other by eye (Isaac viewport, overhead image)
+floor_grid: {spacing_m: 0.05, label_every_m: 0.10}
+
+table:
+  center: [0.3572, 0.0, -0.00875]  # 3' x 3': x -0.10 .. 0.814, y -0.457 .. 0.457; top at z = -0.0024 (12.7 mm thick)
+  size: [0.9144, 0.9144, 0.0127]
+  height_above_floor: 0.75
+  color: [0.30, 0.20, 0.11]       # plywood (rendered under the twin lights)
+
+# the twin's look (sim only): an indoor room (dim, warm), the arm's black printed parts
+lights: {dome: 90.0, key: 350.0, key_rotate_xyz_deg: [-50.0, 25.0, 0.0]}
+robot_color: [0.05, 0.05, 0.06]
+
+# the REAL units' intrinsics (their camera_info, 2026-10-11): the sim renders with them (sim/scene.py set_pinhole)
+wrist_camera_intrinsics: {fx: 327.861, fy: 327.408, cx: 321.353, cy: 175.095}
+
+camera_rig:                       # the D435i's stand: the user's Fusion export, fitted to the calibrated camera
+  # (tools/fit_camera_mount.py: residual 7.0 mm / 2.47 deg)
+  urdf: robots/SO101_UVC_D435i_URDF/so101_uvc_d435i_mount.urdf
+  xy: [0.5952, 0.0090]
+  yaw_deg: 180.79
+  tilt_rad: 0.5018
+
+camera:
+  fx: 605.382
+  fy: 604.291
+  cx: 322.546
+  cy: 256.417
+  mount:
+    # the real D435i's calibrated pose (calibrate.py locate --via-wrist / fixed): ~0.53 m in front of the base,
+    # 0.33 m up, 40 deg from straight down, looking back at the work band
+    from_calibration: config/calibration/so101_plate/real_d435i.yaml
+
+target:
+  object: lego_2x4
+  # the reach band on the 12 V 2 A supply: at ~28 cm the elbow hit 81 % load and every servo dropped off the bus
+  spawn_region: {x: [0.15, 0.22], y: [-0.08, 0.08]}
+  default_xy: [0.19, 0.03]
+  detector_model: models/lego_seg_v1.pt       # trained on the OLD overhead view: retrain from this view (doc 25 B5)
+extra_objects:
+  - {name: lego_2x2, object: lego_2x2, default_xy: [0.165, -0.05], yaw: 0.4,
+     spawn_region: {x: [0.15, 0.22], y: [-0.08, 0.08]}}
+
+goal:
+  xy: [0.18, -0.07]
+  yaw_deg: 0.0
+  marker_radius_m: 0.015
+  region: {x: [0.15, 0.22], y: [-0.08, 0.08]}
+  min_separation_m: 0.06
+
+obstacles:
+  count: [0, 1]
+  region: {x: [0.10, 0.30], y: [-0.22, 0.22]}
+  clearance_m: 0.055
+  robot_clearance_m: 0.11
+  keep_clear:                     # the AprilTags inside the obstacle region (config/calibration_targets_so101_plate.yaml)
+    - {xy: [0.11, 0.185], r_m: 0.06}
+    - {xy: [0.11, -0.215], r_m: 0.06}
+  padding_m: 0.006
+  mass_kg: 0.05
+  color: [0.25, 0.35, 0.65]
+  pool:
+    - {id: wall,  size: [0.012, 0.08, 0.035], role: between}
+    - {id: block, size: [0.03, 0.03, 0.03]}
+    - {id: tower, size: [0.02, 0.02, 0.07]}
+
+ui:
+  reach_m: [0.13, 0.22]
+
+perception:
+  detector: {conf: 0.6, height_tolerance_m: 0.01, exclude_radius_m: 0.11, min_points: 30}
+  wrist_refine: depth
+  obstacle_cloud: {voxel_m: 0.01, robot_margin_m: 0.012, can_margin_m: 0.012, min_points_per_voxel: 2,
+                   change_min_voxels: 8, change_robot_margin_m: 0.04}
+
+physics:
+  dt: 0.008333
+  solver_position_iterations: 32
+  friction: {static: 1.0, dynamic: 1.0, restitution: 0.0}

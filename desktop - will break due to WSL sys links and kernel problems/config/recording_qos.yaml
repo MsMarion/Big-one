@@ -1,0 +1,9 @@
+# QoS overrides for ros2 bag record (--qos-profile-overrides-path): the camera topics are published best-effort
+# (sensor data), and a recorder that subscribed before the publishers existed used the default RELIABLE QoS,
+# which never matches them -- the first failure snapshot (2026-10-11) had every image topic at 0 messages.
+/camera/camera/color/image_raw:                          {history: keep_last, depth: 10, reliability: best_effort, durability: volatile}
+/camera/camera/color/camera_info:                        {history: keep_last, depth: 10, reliability: best_effort, durability: volatile}
+/camera/camera/aligned_depth_to_color/image_raw:         {history: keep_last, depth: 10, reliability: best_effort, durability: volatile}
+/wrist_camera/camera/color/image_raw:                    {history: keep_last, depth: 10, reliability: best_effort, durability: volatile}
+/wrist_camera/camera/color/camera_info:                  {history: keep_last, depth: 10, reliability: best_effort, durability: volatile}
+/wrist_camera/camera/aligned_depth_to_color/image_raw:   {history: keep_last, depth: 10, reliability: best_effort, durability: volatile}

@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workcell</title>
+<!-- The workcell page: what the robot sees (scan), pick an object, choose where it goes and how it is turned.
+     Served by pnp_manipulation/workcell_node.py at http://localhost:8088 (docs/learning/18_workcell_ui.md). -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #1d2330; --muted: #6b7385; --line: #dfe3ea;
+    --accent: #2f6fed; --ok: #1f9d55; --bad: #d64545; --desk: #e9e4da; --deskline: #c9c0ae;
+    --reach: rgba(47,111,237,0.07); --area: rgba(31,157,85,0.08); --obst: #8a93a6; --warn: #b7791f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151b; --panel: #1b2029; --ink: #e7ebf3; --muted: #9aa3b5; --line: #2c3340;
+      --desk: #2a2722; --deskline: #4a4438; --reach: rgba(90,140,255,0.10); --area: rgba(60,200,120,0.10);
+      --obst: #6c7488; --warn: #e0a84a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .pill.live { color: var(--ok); border-color: var(--ok); }
+  .pill.busy { color: var(--accent); border-color: var(--accent); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; padding: 12px 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .card h2 { font-size: 13px; margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-weight: 600;
+             display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tabs button, .chip { border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 3px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .tabs button.on, .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; font-weight: 400; }
+  #view { position: relative; height: 540px; }
+  @media (max-width: 900px) { #view { height: 420px; } }
+  #map, #three { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  #three { display: none; }
+  .hint { position: absolute; left: 10px; bottom: 8px; right: 10px; font-size: 12px; color: var(--muted); background: var(--panel); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); width: fit-content; max-width: calc(100% - 20px); }
+  .layerbar { display: none; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); align-items: center; }
+  .layerbar .lbl { font-size: 12px; color: var(--muted); margin-right: 2px; }
+  .layerbar .chip .n { opacity: .7; margin-left: 4px; font-size: 11px; }
+  #status3d { position: absolute; left: 10px; top: 8px; font-size: 12px; color: var(--muted); background: var(--panel); padding: 3px 8px;
+              border-radius: 6px; border: 1px solid var(--line); display: none; font-variant-numeric: tabular-nums; }
+  #status3d.stale { color: var(--bad); border-color: var(--bad); }
+  .feeds { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; padding: 8px; }
+  .feeds figure { margin: 0; background: #000; border-radius: 8px; overflow: hidden; position: relative; cursor: zoom-in; }
+  .feeds img { width: 100%; display: block; aspect-ratio: 4 / 3; object-fit: contain; }
+  .feeds figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 8px; font-size: 12px; color: #fff; background: linear-gradient(transparent, #000a); display: flex; justify-content: space-between; }
+  .feeds .wait { position: absolute; inset: 0; display: grid; place-items: center; color: #aaa; font-size: 12px; }
+  #lightbox { position: fixed; inset: 0; background: #000d; display: none; place-items: center; z-index: 10; cursor: zoom-out; }
+  #lightbox img { max-width: 94vw; max-height: 88vh; }
+  #lightbox div { color: #fff; text-align: center; margin-top: 6px; font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .controls button { flex: 1 1 auto; border-radius: 8px; padding: 9px 12px; font-weight: 600; cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+  .controls button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .objs { list-style: none; margin: 0; padding: 4px 0; max-height: 180px; overflow: auto; }
+  .objs li { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; }
+  .objs li:hover { background: var(--bg); }
+  .objs li.sel { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .objs .meta { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .objs li.blocked { opacity: .55; flex-wrap: wrap; }
+  .objs .why { flex-basis: 100%; color: #c0392b; font-size: 11px; padding-left: 20px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; padding: 8px 12px; font-size: 13px; }
+  .kv > span:nth-child(odd) { color: var(--muted); }
+  .rot { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  .rot .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .rot .title { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .rot .title b { color: var(--ink); font-weight: 600; }
+  .rot input[type=number] { width: 70px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; }
+  .rot input[type=range] { flex: 1; min-width: 120px; }
+  .rot button { border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 3px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .rot .note { font-size: 12px; color: var(--muted); }
+  .faces { display: flex; flex-wrap: wrap; gap: 6px; }
+  .faces button { position: relative; padding: 4px 8px 4px 8px; }
+  .faces button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .faces button.now::after { content: "now"; font-size: 9px; margin-left: 5px; opacity: 0.75; }
+  .faces button .n { font-size: 10px; margin-left: 4px; opacity: 0.8; }
+  #msg { padding: 0 12px 8px; font-size: 12px; color: var(--warn); min-height: 0; }
+  #msg:empty { display: none; }
+  #log { margin: 0; padding: 8px 12px; height: 150px; overflow: auto; font: 12px/1.45 ui-monospace, Consolas, monospace; color: var(--muted); white-space: pre-wrap; }
+  .result-ok { color: var(--ok); font-weight: 600; } .result-bad { color: var(--bad); font-weight: 600; }
+  .empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
+  .plan { list-style: none; margin: 0; padding: 4px 0; max-height: 200px; overflow: auto; counter-reset: step; }
+  .plan li { display: flex; align-items: center; gap: 8px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+  .plan li:hover { background: var(--bg); }
+  .plan li.editing { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .plan li::before { counter-increment: step; content: counter(step); width: 18px; height: 18px; border-radius: 50%;
+                     background: var(--bg); border: 1px solid var(--line); font-size: 11px; display: grid; place-items: center; flex: none; }
+  .plan li.empty::before { content: none; }
+  .plan li.empty { cursor: default; }
+  .plan .meta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .plan .st { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .plan .st.done { color: var(--ok); } .plan .st.failed { color: var(--bad); } .plan .st.running { color: var(--accent); }
+  .plan li > button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Workcell</h1>
+  <span class="pill" id="cellPill">connecting…</span>
+  <span class="pill" id="taskPill">idle</span>
+  <a class="pill" href="/grasp_study" target="_blank" rel="noopener" title="tools/grasp_study.py: the best grasps per object and robot">grasp study</a>
+  <span style="margin-left:auto" class="pill" id="scanPill">no scan yet</span>
+</header>
+<main>
+  <div class="col">
+    <section class="card">
+      <h2><span>What the robot sees</span>
+        <span class="tabs"><button id="tab2d" class="on">Top view</button> <button id="tab3d">3D</button></span></h2>
+      <div id="view">
+        <svg id="map"></svg>
+        <div id="three"></div>
+        <div id="status3d"></div>
+        <div class="hint" id="hint">Drag an object to where it should go. Drag the round handle to turn it (Shift: 1° steps). Q / E: 15°.</div>
+      </div>
+      <div class="layerbar" id="layerBar"><span class="lbl">Show (as in RViz):</span></div>
+    </section>
+    <section class="card">
+      <h2><span>Cameras</span><span class="chips" id="feedChips"></span></h2>
+      <div class="feeds" id="feeds"></div>
+    </section>
+  </div>
+  <aside class="col">
+    <section class="card">
+      <h2><span>Objects</span><span id="nObj"></span></h2>
+      <ul class="objs" id="objs"></ul>
+      <div class="kv">
+        <span>Selected</span><span id="selTxt">–</span>
+        <span>Goal</span><span id="goalTxt">drag an object, or click the desk</span>
+      </div>
+      <div class="rot" id="rot">
+        <div class="title"><span>Face it rests on at the goal</span><span id="faceNote"></span></div>
+        <div class="faces" id="faces"></div>
+        <div class="title"><span id="rotWhat">Rotation at the goal</span><span id="rotNow"></span></div>
+        <div class="row">
+          <button id="rotL" title="turn left 15° (Q)">⟲ 15°</button>
+          <input id="yawNum" type="number" step="1" value="0" aria-label="goal yaw in degrees"><span>°</span>
+          <button id="rotR" title="turn right 15° (E)">15° ⟳</button>
+          <input id="yaw" type="range" min="-180" max="180" step="1" value="0" aria-label="goal yaw">
+        </div>
+        <div class="row" id="presets">
+          <button data-p="keep" title="the way it lies now">as it is</button>
+          <button data-p="0">0°</button><button data-p="45">45°</button><button data-p="90">90°</button><button data-p="-45">−45°</button>
+          <button data-p="+90" title="a quarter turn from now">+90° from now</button>
+        </div>
+        <div class="note" id="rotNote"></div>
+      </div>
+      <div id="msg"></div>
+      <div class="controls">
+        <button id="scanBtn">Scan</button>
+        <button id="previewBtn" disabled title="plan everything, move nothing: is it pickable, and the path (RViz 'Planned motion')">Preview</button>
+        <button id="pickBtn" class="primary" disabled>Pick &amp; place</button>
+        <button id="homeBtn">Home</button>
+        <button id="wristBtn" title="the arm looks over the desk with the wrist camera and builds a flat map (Cameras: Wrist map)">Wrist scan</button>
+        <button id="cancelBtn" disabled>Stop</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2><span>Plan</span><span id="nPlan"></span></h2>
+      <ul class="plan" id="plan"></ul>
+      <div class="controls">
+        <button id="addBtn" disabled>Add move</button>
+        <button id="runBtn" class="primary" disabled>Run plan</button>
+        <button id="clearBtn" disabled>Clear</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2><span>Task</span><span id="resultTxt"></span></h2>
+      <pre id="log"></pre>
+    </section>
+  </aside>
+</main>
+<div id="lightbox"><figure style="margin:0"><img id="lbImg" alt=""><div id="lbCap"></div></figure></div>
+<script>
+"use strict";
+let lastWristResult = null;
+let W = null, sel = null, goal = null, goalYaw = 0, goalRest = null, view = "2d", lastLogLen = 0;   // goalRest null: keep its face
+let editStep = null;                   // a queued plan step being edited (its goal + yaw), else null: the goal
+const stepEdit = {};                   // index -> {xy?, yaw?}: local edits not yet confirmed by the node
+const $ = (id) => document.getElementById(id);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const D = Math.PI / 180;
+
+let msgTimer = null;
+function flash(text) { $("msg").textContent = text; clearTimeout(msgTimer); msgTimer = setTimeout(() => $("msg").textContent = "", 6000); }
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const j = await r.json().catch(() => ({}));
+  if (body !== undefined && j.ok === false && j.why) flash(j.why);          // a refusal: say why
+  return j;
+}
+
+// ---------------- rotation: an object's yaw only matters up to its symmetry ----------------
+// yaw_period_deg: null = round (a can: any yaw is the same), 180 = a box / 2x4 brick, 90 = a 2x2 brick
+function wrapYaw(y, P) {
+  if (!P) return 0;
+  const h = Math.min(P, 360) / 2;
+  return y - 2 * h * Math.ceil((y - h) / (2 * h));       // into (-h, h]: a box's "90" stays 90, not -90
+}
+function faceOf(o, name) { return (o.rests || []).find(r => r.name === name) || null; }
+function target() {                    // what the rotation tools edit: a plan step, or the goal of the chosen object
+  const st = editStep !== null && W && W.plan && W.plan[editStep];
+  if (st && st.status === "queued") {
+    const e = stepEdit[editStep] || {};
+    const face = faceOf(st, st.rest) || null;
+    return {kind: "step", i: editStep, obj: st, xy: e.xy || st.to, yaw: e.yaw ?? st.yaw_deg, from: st.from,
+            rest: st.rest, period: face ? face.period_deg : st.yaw_period_deg};
+  }
+  const so = W && (W.objects || []).find(o => o.id === sel);
+  if (!so) return null;
+  const rest = goalRest || so.rest || "upright", face = faceOf(so, rest);
+  return {kind: "goal", obj: so, xy: goal, yaw: goalYaw, now: so.yaw / D, rest,
+          period: face ? face.period_deg : so.yaw_period_deg};
+}
+// an object's outline from above on a face: a circle for a standing can, else the face's footprint rectangle
+function shapeOn(o, rest) {
+  const f = faceOf(o, rest);
+  const round = o.shape === "cylinder" && (!f || rest === "upright" || rest === "upside_down");
+  return {round, l: f ? f.footprint[0] : o.dims[0], w: f ? f.footprint[1] : o.dims[1], h: f ? 2 * f.height : o.dims[2]};
+}
+function setYaw(y, commit = true) {
+  const t = target();
+  if (!t) return;
+  y = wrapYaw(Math.round(y * 10) / 10, t.period);
+  if (t.kind === "goal") { goalYaw = y; if (goal && commit) setGoal(goal); }
+  else { stepEdit[t.i] = {...(stepEdit[t.i] || {}), yaw: y}; editedAt = Date.now();
+         if (commit) api("/api/plan/update", {index: t.i, yaw_deg: y}).then(() => delete stepEdit[t.i]); }
+  render();
+}
+
+// ---------------- 2D top view (robot base frame: x forward = up on screen, y left = left) ----------------
+const map = $("map");
+let toScreen = null, toWorld = null, scale = 1;
+function fit() {
+  const d = W.desk, pad = 0.04;
+  // the world box to show: the desk plus the robot base
+  let xmin = Math.min(d.center[0] - d.size[0] / 2, -0.12) - pad, xmax = d.center[0] + d.size[0] / 2 + pad;
+  let ymin = d.center[1] - d.size[1] / 2 - pad, ymax = d.center[1] + d.size[1] / 2 + pad;
+  const w = map.clientWidth, h = map.clientHeight;
+  const s = Math.min(w / (ymax - ymin), h / (xmax - xmin));
+  const ox = w / 2 + s * (ymax + ymin) / 2, oy = h / 2 + s * (xmax + xmin) / 2;
+  toScreen = (x, y) => [ox - s * y, oy - s * x];
+  toWorld = (u, v) => [(oy - v) / s, (ox - u) / s];
+  scale = s;
+  return s;
+}
+function el(tag, attrs, parent) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || map).appendChild(e);
+  return e;
+}
+function rectPts(cx, cy, l, w, yaw) {
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  return [[l, w], [-l, w], [-l, -w], [l, -w]].map(([a, b]) => toScreen(cx + (a * c - b * s) / 2, cy + (a * s + b * c) / 2).join(",")).join(" ");
+}
+function ghost2d(o, xy, yaw, color, s, parent, strong, rest) {
+  const a = {fill: color, "fill-opacity": strong ? 0.22 : 0.12, stroke: color, "stroke-width": strong ? 2.5 : 1.5, "stroke-dasharray": "4 3"};
+  const sh = shapeOn(o, rest || o.rest || "upright");
+  if (sh.round) { const [u, v] = toScreen(xy[0], xy[1]); el("circle", {cx: u, cy: v, r: s * sh.l / 2, ...a}, parent); }
+  else {
+    el("polygon", {points: rectPts(xy[0], xy[1], sh.l, sh.w, yaw), ...a}, parent);
+    // a tick on the +x end: which way the object's long side points (it also shows a 180-deg turn of a box's print)
+    const [u0, v0] = toScreen(xy[0] + 0.35 * sh.l * Math.cos(yaw), xy[1] + 0.35 * sh.l * Math.sin(yaw));
+    el("circle", {cx: u0, cy: v0, r: 2.5, fill: color}, parent);
+  }
+}
+function handlePos(t) {                // the rotation handle: just outside the object, along its yaw
+  const sh = shapeOn(t.obj, t.rest);
+  const r = Math.max(sh.l, sh.w) / 2 + 16 / scale;
+  return [t.xy[0] + r * Math.cos(t.yaw * D), t.xy[1] + r * Math.sin(t.yaw * D)];
+}
+function draw2d() {
+  if (!W) return;
+  map.innerHTML = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="${css("--accent")}"/></marker></defs>`;
+  const s = fit(), d = W.desk;
+  el("polygon", {points: rectPts(d.center[0], d.center[1], d.size[0], d.size[1], 0), fill: css("--desk"), stroke: css("--deskline")});
+  if (W.reach) {                       // a ring: where the arm reaches comfortably (scene ui.reach_m)
+    const [bx, by] = toScreen(0, 0), R = s * W.reach.r_max, r = s * W.reach.r_min;
+    const circ = (rad) => `M ${bx - rad},${by} a ${rad},${rad} 0 1,0 ${2 * rad},0 a ${rad},${rad} 0 1,0 ${-2 * rad},0 `;
+    el("path", {d: circ(R) + (r > 0 ? circ(r) : ""), "fill-rule": "evenodd", fill: css("--reach"),
+                stroke: css("--accent"), "stroke-opacity": 0.3, "stroke-dasharray": "4 4"});
+    el("text", {x: bx + R * 0.71 + 4, y: by - R * 0.71, "font-size": 11, fill: css("--muted")}).textContent = "reach";
+  }
+  for (const [name, a] of Object.entries(W.areas || {})) {
+    el("polygon", {points: rectPts((a.x[0] + a.x[1]) / 2, (a.y[0] + a.y[1]) / 2, a.x[1] - a.x[0], a.y[1] - a.y[0], 0),
+                   fill: css("--area"), stroke: css("--ok"), "stroke-opacity": 0.35, "stroke-dasharray": "3 3"});
+    const [u, v] = toScreen(a.x[1], a.y[0]);
+    el("text", {x: u - 4, y: v + 12, "text-anchor": "end", "font-size": 11, fill: css("--muted")}).textContent = name;
+  }
+  // what the overhead camera sees of the desk: goals outside it are refused (the placement couldn't be checked)
+  if (W.camera_view) {
+    el("polygon", {points: W.camera_view.map(p => toScreen(p[0], p[1]).join(",")).join(" "), fill: "none",
+                   stroke: css("--muted"), "stroke-opacity": 0.6, "stroke-dasharray": "2 4"});
+    const [u, v] = toScreen(W.camera_view[0][0], W.camera_view[0][1]);
+    el("text", {x: u + 4, y: v + 12, "font-size": 11, fill: css("--muted")}).textContent = "camera view";
+  }
+  for (const o of W.obstacles || []) {
+    el("polygon", {points: rectPts(o.center[0], o.center[1], o.size[0], o.size[1], o.yaw || 0), fill: css("--obst"), "fill-opacity": 0.7});
+  }
+  if (W.robot && W.robot.links && W.robot.links.length) {      // the arm, seen from above
+    const pts = W.robot.links.map(p => toScreen(p[0], p[1]).join(",")).join(" ");
+    el("polyline", {points: pts, fill: "none", stroke: css("--ink"), "stroke-opacity": 0.55, "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round"});
+    const [bx, by] = toScreen(0, 0);
+    el("circle", {cx: bx, cy: by, r: 9, fill: css("--ink"), "fill-opacity": 0.75});
+  }
+  const busy = W.task && W.task.busy, t = target();
+  // planned moves: an arrow from where the object is (or will be) to a dashed ghost where it goes; queued ones can
+  // be dragged (goal) and, while edited, turned
+  (W.plan || []).forEach((st, i) => {
+    const e = stepEdit[i] || {}, to = e.xy || st.to, yaw = (e.yaw ?? st.yaw_deg) * D;
+    const [u0, v0] = toScreen(st.from[0], st.from[1]), [u1, v1] = toScreen(to[0], to[1]);
+    const col = st.status === "done" ? css("--ok") : st.status === "failed" ? css("--bad") : css("--accent");
+    el("line", {x1: u0, y1: v0, x2: u1, y2: v1, stroke: col, "stroke-width": 2, "stroke-dasharray": "6 4", "marker-end": "url(#arrow)"});
+    const editable = st.status === "queued" && !busy;
+    const g = el("g", {style: editable ? "cursor:grab" : ""});
+    ghost2d(st, to, yaw, col, s, g, editStep === i, st.rest || null);
+    el("circle", {cx: u1, cy: v1, r: 9, fill: col}, g);
+    el("text", {x: u1, y: v1 + 4, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: "#fff", "pointer-events": "none"}, g).textContent = i + 1;
+    if (editable) {
+      g.addEventListener("pointerdown", (ev) => { ev.preventDefault(); ev.stopPropagation(); editStep = i;
+        drag = {kind: "step", i, x: ev.clientX, y: ev.clientY, moved: false}; render(); });
+      g.addEventListener("click", (ev) => ev.stopPropagation());
+    }
+  });
+  if (goal && editStep === null) {     // the goal of the chosen object: what it will look like there
+    const so = (W.objects || []).find(o => o.id === sel);
+    if (so) ghost2d(so, goal, goalYaw * D, css("--ok"), s, null, true, goalRest || so.rest);
+    const [u, v] = toScreen(goal[0], goal[1]);
+    el("line", {x1: u - 12, y1: v, x2: u + 12, y2: v, stroke: css("--ok")}); el("line", {x1: u, y1: v - 12, x2: u, y2: v + 12, stroke: css("--ok")});
+  }
+  // the rotation handle of whatever is being edited (not for round objects: their yaw doesn't matter)
+  if (t && t.xy && t.period && !busy) {
+    const [cu, cv] = toScreen(t.xy[0], t.xy[1]), [hu, hv] = toScreen(...handlePos(t));
+    const col = t.kind === "step" ? css("--accent") : css("--ok");
+    el("line", {x1: cu, y1: cv, x2: hu, y2: hv, stroke: col, "stroke-width": 2});
+    const h = el("circle", {cx: hu, cy: hv, r: 8, fill: css("--panel"), stroke: col, "stroke-width": 3, style: "cursor:grab"});
+    el("text", {x: hu, y: hv - 12, "text-anchor": "middle", "font-size": 11, fill: col, "pointer-events": "none"}).textContent = `${Math.round(t.yaw)}°`;
+    h.addEventListener("pointerdown", (ev) => { ev.preventDefault(); ev.stopPropagation(); drag = {kind: "turn"}; });
+    h.addEventListener("click", (ev) => ev.stopPropagation());
+  }
+  for (const o of W.objects || []) {   // the objects as scanned
+    const g = el("g", {style: "cursor:grab"});
+    g.addEventListener("pointerdown", (ev) => { ev.preventDefault(); drag = {kind: "object", id: o.id, x: ev.clientX, y: ev.clientY, moved: false}; });
+    g.addEventListener("click", (ev) => ev.stopPropagation());
+    const isSel = o.id === sel && editStep === null, sh = shapeOn(o, o.rest || "upright");
+    const blocked = o.pickable === false;     // no grasp leaves room for the open hand (pnp_core/pickability.py)
+    const fo = blocked ? 0.3 : 0.85, dash = blocked ? "4 3" : null;
+    if (sh.round) {
+      const [u, v] = toScreen(o.xy[0], o.xy[1]);
+      el("circle", {cx: u, cy: v, r: s * sh.l / 2, fill: o.color, "fill-opacity": fo, stroke: isSel ? css("--accent") : (blocked ? "#c0392b" : "#0006"), "stroke-width": isSel ? 4 : (blocked ? 2 : 1), "stroke-dasharray": dash}, g);
+    } else {
+      el("polygon", {points: rectPts(o.xy[0], o.xy[1], sh.l, sh.w, o.yaw), fill: o.color, "fill-opacity": fo,
+                     stroke: isSel ? css("--accent") : (blocked ? "#c0392b" : "#0006"), "stroke-width": isSel ? 4 : (blocked ? 2 : 1),
+                     "stroke-dasharray": dash}, g);
+    }
+    const [u, v] = toScreen(o.xy[0], o.xy[1]);
+    el("text", {x: u, y: v - s * Math.max(o.dims[0], o.dims[1]) / 2 - 6, "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: css("--ink")}, g)
+      .textContent = `${o.label} ${Math.round(o.score * 100)}%${blocked ? " · blocked" : ""}`;
+    if (blocked) el("title", {}, g).textContent = o.blocked;
+  }
+}
+let drag = null;                       // {kind: object | step | turn, ...} while the mouse is down on one of them
+function mapXY(ev) { const r = map.getBoundingClientRect(); return toWorld(ev.clientX - r.left, ev.clientY - r.top); }
+map.addEventListener("pointermove", (ev) => {
+  if (!drag) return;
+  if (drag.kind === "turn") {
+    const t = target(); if (!t || !t.xy) return;
+    const [x, y] = mapXY(ev), step = ev.shiftKey ? 1 : 5;
+    setYaw(Math.round(Math.atan2(y - t.xy[1], x - t.xy[0]) / D / step) * step, false);
+    return;
+  }
+  if (!drag.moved && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) < 6) return;
+  drag.moved = true; map.style.cursor = "grabbing";
+  if (drag.kind === "object") {
+    if (sel !== drag.id) { const o = W.objects.find(o => o.id === drag.id); if (o) goalYaw = wrapYaw(o.yaw / D, o.yaw_period_deg); }
+    sel = drag.id; editStep = null; goal = mapXY(ev);
+  } else if (drag.kind === "step") { stepEdit[drag.i] = {...(stepEdit[drag.i] || {}), xy: mapXY(ev)}; }
+  editedAt = Date.now(); render();
+});
+window.addEventListener("pointerup", (ev) => {
+  if (!drag) return;
+  const d = drag; drag = null; map.style.cursor = "";
+  if (d.kind === "turn") { const t = target(); if (t) setYaw(t.yaw, true); return; }
+  if (d.kind === "object") { choose(d.id, d.moved); if (d.moved) setGoal(mapXY(ev)); return; }
+  if (d.kind === "step" && d.moved) {
+    const xy = stepEdit[d.i] && stepEdit[d.i].xy;
+    api("/api/plan/update", {index: d.i, xy}).then(() => { if (stepEdit[d.i]) delete stepEdit[d.i].xy; render(); });
+  }
+});
+window.addEventListener("keydown", (ev) => {
+  if (ev.target.tagName === "INPUT") return;
+  if (ev.key === "Escape") { editStep = null; render(); return; }
+  const k = ev.key.toLowerCase();
+  if ((k === "q" || k === "e") && target()) setYaw(target().yaw + (k === "q" ? 15 : -15));
+});
+map.addEventListener("click", (ev) => {
+  if (!W || !toWorld) return;
+  if (editStep !== null) {              // editing a step: a click on the desk moves its goal
+    const i = editStep; stepEdit[i] = {...(stepEdit[i] || {}), xy: mapXY(ev)}; render();
+    api("/api/plan/update", {index: i, xy: mapXY(ev)}).then(() => { if (stepEdit[i]) delete stepEdit[i].xy; render(); });
+    return;
+  }
+  setGoal(mapXY(ev));
+});
+
+// ---------------- 3D view ----------------
+let three = null;
+function init3d() {
+  const host = $("three"), scene = new THREE.Scene();
+  const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+  renderer.setPixelRatio(window.devicePixelRatio);
+  host.appendChild(renderer.domElement);
+  const cam = new THREE.PerspectiveCamera(45, 1, 0.01, 20);
+  cam.up.set(0, 0, 1);
+  const ctl = new THREE.OrbitControls(cam, renderer.domElement);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(1, -1, 2); scene.add(sun);
+  const world = new THREE.Group(); scene.add(world);
+  scene.add(robot3d.wrap, layerG);
+  three = {renderer, scene, cam, ctl, world, host, placed: false};
+  loadRobot();
+  const loop = () => { requestAnimationFrame(loop); ctl.update(); renderer.render(scene, cam); };
+  loop();
+}
+function box(sx, sy, sz, color, opacity) {
+  return new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz),
+                        new THREE.MeshStandardMaterial({color, transparent: opacity < 1, opacity: opacity ?? 1, roughness: 0.7}));
+}
+function draw3d() {
+  if (!W) return;
+  if (!three) init3d();
+  const {world, cam, ctl, renderer, host} = three;
+  const w = host.clientWidth, h = host.clientHeight;
+  renderer.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix();
+  // rebuilt on every poll (0.4 s): free the old meshes' GPU buffers, or they pile up
+  world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  world.clear();
+  const d = W.desk, k = Math.max(d.size[0], d.size[1]) / 1.3;   // cell scale: 1 = the FR3 table, ~0.5 = the SO-101 desk
+  const desk = box(d.size[0], d.size[1], d.size[2], css("--desk") || "#e9e4da", 1);
+  desk.position.set(d.center[0], d.center[1], d.center[2]); world.add(desk);
+  for (const o of W.obstacles || []) {
+    const b = box(o.size[0], o.size[1], o.size[2], css("--obst") || "#8a93a6", 0.85);
+    b.position.set(...o.center); b.rotation.z = o.yaw || 0; world.add(b);
+  }
+  const top = d.center[2] + d.size[2] / 2;
+  for (const o of W.objects || []) {
+    let m;
+    const sh = shapeOn(o, o.rest || "upright");
+    if (sh.round) {
+      m = new THREE.Mesh(new THREE.CylinderGeometry(sh.l / 2, sh.l / 2, sh.h, 32),
+                         new THREE.MeshStandardMaterial({color: o.color, roughness: 0.5}));
+      m.rotation.x = Math.PI / 2;
+    } else {
+      m = box(sh.l, sh.w, sh.h, o.color, 1);
+      m.rotation.z = o.yaw;
+    }
+    m.position.set(o.xy[0], o.xy[1], top + sh.h / 2);
+    if (o.id === sel) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({color: 0x2f6fed}));
+      e.scale.setScalar(1.08); m.add(e); }
+    world.add(m);
+  }
+  if (robot3d.state !== "ready" && W.robot && W.robot.links) {        // until the URDF model is there: sticks
+    const pts = W.robot.links.map(p => new THREE.Vector3(...p));
+    const armMat = () => new THREE.MeshStandardMaterial({color: 0xd9a400, roughness: 0.5});
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * k, 0.08 * k, 0.04 * k, 24), armMat());
+    base.rotation.x = Math.PI / 2; base.position.set(pts[0].x, pts[0].y, pts[0].z + 0.02 * k); world.add(base);
+    for (const p of pts.slice(1)) {                      // joints
+      const j = new THREE.Mesh(new THREE.SphereGeometry(0.03 * k, 16, 12), armMat()); j.position.copy(p); world.add(j);
+    }
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1], len = a.distanceTo(b);
+      if (len < 1e-4) continue;
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.025 * k, 0.025 * k, len, 12), armMat());
+      c.position.copy(a.clone().add(b).multiplyScalar(0.5));
+      c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      world.add(c);
+    }
+  }
+  const ghost3d = (o, xy, yaw, color, rest) => {
+    const sh = shapeOn(o, rest || o.rest || "upright");
+    const m = sh.round
+      ? new THREE.Mesh(new THREE.CylinderGeometry(sh.l / 2, sh.l / 2, sh.h, 32), new THREE.MeshStandardMaterial({color, transparent: true, opacity: 0.3}))
+      : box(sh.l, sh.w, sh.h, color, 0.3);
+    if (sh.round) m.rotation.x = Math.PI / 2; else m.rotation.z = yaw;
+    m.position.set(xy[0], xy[1], top + sh.h / 2); world.add(m);
+  };
+  (W.plan || []).forEach((st, i) => { if (st.status !== "done") { const e = stepEdit[i] || {};
+    ghost3d(st, e.xy || st.to, (e.yaw ?? st.yaw_deg) * D, 0x2f6fed, st.rest); } });
+  const so3 = (W.objects || []).find(o => o.id === sel);
+  if (goal && so3 && editStep === null) ghost3d(so3, goal, goalYaw * D, 0x1f9d55, goalRest || so3.rest);
+  if (!three.placed) {
+    // from the front-left corner, high enough to see the whole arm (~0.8 m tall) and the desk
+    // (a small arm on a big board, the SO-101: framed on its reach instead, or the arm is a speck)
+    const r = W.reach && W.reach.r_max;
+    if (r && r < 0.5) { ctl.target.set(0.9 * r, 0, 0.2 * r); cam.position.set(2.7 * r, -2.2 * r, 1.8 * r); }
+    else { cam.position.set(d.center[0] + 0.9 * k, d.center[1] - 1.5 * k, 1.3 * k);
+           ctl.target.set(d.center[0] - 0.05 * k, d.center[1], 0.2 * k); }
+    three.placed = true;
+  }
+}
+
+// ---------------- the robot model: its URDF + meshes (/api/urdf), posed by /joint_states (/api/joints, ~20 Hz) ----------------
+const robot3d = {state: "none", wrap: new THREE.Group(), joints: {}, age: null};
+robot3d.wrap.matrixAutoUpdate = false;
+const stlLoader = new THREE.STLLoader(), meshCache = {};
+const nums = (s, d) => (s || d || "").trim().split(/\s+/).map(Number);
+function loadStl(url) {
+  if (!meshCache[url]) meshCache[url] = new Promise((ok, bad) => stlLoader.load(url, g => { g.computeVertexNormals(); ok(g); }, undefined, bad));
+  return meshCache[url];
+}
+function originOf(el) {                // <origin xyz rpy>: URDF rpy = Rz(yaw) Ry(pitch) Rx(roll) = three's Euler order "ZYX"
+  const o = el.querySelector(":scope > origin"), g = new THREE.Group();
+  if (o) { g.position.set(...nums(o.getAttribute("xyz"), "0 0 0")); const r = nums(o.getAttribute("rpy"), "0 0 0"); g.rotation.set(r[0], r[1], r[2], "ZYX"); }
+  return g;
+}
+async function loadRobot() {
+  if (robot3d.state === "loading" || robot3d.state === "ready") return;
+  robot3d.state = "loading";
+  let xml;
+  try { const r = await fetch("/api/urdf"); if (!r.ok) throw new Error(r.status); xml = new DOMParser().parseFromString(await r.text(), "application/xml"); }
+  catch (e) { robot3d.state = "none"; setTimeout(loadRobot, 3000); return; }       // no /robot_description yet
+  const R = xml.documentElement, mats = {}, links = {}, children = new Set();
+  for (const m of R.querySelectorAll(":scope > material")) { const c = m.querySelector("color"); if (c) mats[m.getAttribute("name")] = nums(c.getAttribute("rgba")); }
+  for (const L of R.querySelectorAll(":scope > link")) {
+    const g = new THREE.Group(); g.name = L.getAttribute("name"); links[g.name] = g;
+    for (const v of L.querySelectorAll(":scope > visual")) {
+      const geo = v.querySelector("geometry"); if (!geo) continue;
+      const vo = originOf(v); g.add(vo);
+      const me = v.querySelector("material"); let rgba = [0.75, 0.75, 0.78, 1];
+      if (me) { const c = me.querySelector("color"); rgba = c ? nums(c.getAttribute("rgba")) : (mats[me.getAttribute("name")] || rgba); }
+      const mat = new THREE.MeshStandardMaterial({color: new THREE.Color(rgba[0], rgba[1], rgba[2]), roughness: 0.55, metalness: 0.05,
+                                                  transparent: rgba[3] < 1, opacity: rgba[3]});
+      const mesh = geo.querySelector("mesh"), bx = geo.querySelector("box"), cy = geo.querySelector("cylinder"), sp = geo.querySelector("sphere");
+      if (mesh) {
+        const url = mesh.getAttribute("filename"), sc = nums(mesh.getAttribute("scale"), "1 1 1");
+        if (/\.stl$/i.test(url) && url.startsWith("/api/mesh"))
+          loadStl(url).then(gm => { const m = new THREE.Mesh(gm, mat); m.scale.set(...sc); vo.add(m); }).catch(() => {});
+      } else if (bx) vo.add(new THREE.Mesh(new THREE.BoxGeometry(...nums(bx.getAttribute("size"))), mat));
+      else if (cy) { const rr = +cy.getAttribute("radius"), m = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, +cy.getAttribute("length"), 24), mat);
+                     m.rotation.x = Math.PI / 2; vo.add(m); }
+      else if (sp) vo.add(new THREE.Mesh(new THREE.SphereGeometry(+sp.getAttribute("radius"), 16, 12), mat));
+    }
+  }
+  for (const J of R.querySelectorAll(":scope > joint")) {
+    const p = J.querySelector("parent"), c = J.querySelector("child");
+    const parent = p && links[p.getAttribute("link")], child = c && links[c.getAttribute("link")];
+    if (!parent || !child) continue;
+    const jo = originOf(J), mover = new THREE.Group(); jo.add(mover); mover.add(child); parent.add(jo); children.add(child.name);
+    const ax = J.querySelector("axis"), mm = J.querySelector("mimic");
+    robot3d.joints[J.getAttribute("name")] = {mover, type: J.getAttribute("type"),
+      axis: new THREE.Vector3(...nums(ax && ax.getAttribute("xyz"), "1 0 0")).normalize(),
+      mimic: mm ? {joint: mm.getAttribute("joint"), k: +(mm.getAttribute("multiplier") || 1), o: +(mm.getAttribute("offset") || 0)} : null};
+  }
+  const rootName = Object.keys(links).find(n => !children.has(n));
+  if (!rootName) { robot3d.state = "none"; return; }
+  robot3d.wrap.add(links[rootName]);
+  // the page draws in the robot's base frame: the wrap undoes root -> base (fixed joints, at the zero pose)
+  robot3d.wrap.matrix.identity(); robot3d.wrap.updateMatrixWorld(true);
+  const base = links[(W && W.robot && W.robot.base) || "base_link"];
+  if (base) { robot3d.wrap.matrix.copy(base.matrixWorld.clone().invert()); robot3d.wrap.updateMatrixWorld(true); }
+  robot3d.state = "ready";
+  render();
+}
+function poseRobot(q) {
+  for (const [n, j] of Object.entries(robot3d.joints)) {
+    const v = j.mimic ? (q[j.mimic.joint] ?? 0) * j.mimic.k + j.mimic.o : q[n];
+    if (v === undefined) continue;
+    if (j.type === "revolute" || j.type === "continuous") j.mover.quaternion.setFromAxisAngle(j.axis, v);
+    else if (j.type === "prismatic") j.mover.position.copy(j.axis).multiplyScalar(v);
+  }
+}
+async function pollJoints() {
+  if (view === "3d" && robot3d.state === "ready") {
+    try {
+      const j = await (await fetch("/api/joints")).json();
+      poseRobot(j.q); robot3d.age = j.age;
+    } catch (e) { robot3d.age = null; }
+    const s = $("status3d"), stale = robot3d.age === null || robot3d.age > 1.0;
+    s.textContent = stale ? (robot3d.age === null ? "no joint states" : `joint states stale ${robot3d.age.toFixed(0)} s`) : "arm: live joint states";
+    s.className = stale ? "stale" : "";
+  }
+  setTimeout(pollJoints, 50);
+}
+
+// ---------------- RViz's layers: marker arrays, point clouds, the cameras' view cones (/api/layers, 2 Hz) ----------------
+const layerG = new THREE.Group();
+let layerList = [], layerOn = new Set(["detections", "pose", "scene_model", "cameras", "camera_rig", "map_change"]), layerCount = {};
+try { const v = JSON.parse(localStorage.getItem("workcell.layers")); if (Array.isArray(v)) layerOn = new Set(v); } catch (e) { /* no storage */ }
+function buildLayerBar() {
+  const bar = $("layerBar");
+  bar.querySelectorAll(".chip").forEach(b => b.remove());
+  for (const l of layerList) {
+    const b = document.createElement("button");
+    b.className = "chip" + (layerOn.has(l.id) ? " on" : ""); b.title = l.topic || "TF + camera_info";
+    b.innerHTML = `${l.label}<span class="n">${layerOn.has(l.id) && layerCount[l.id] !== undefined ? layerCount[l.id] : ""}</span>`;
+    b.onclick = () => { layerOn.has(l.id) ? layerOn.delete(l.id) : layerOn.add(l.id);
+                        try { localStorage.setItem("workcell.layers", JSON.stringify([...layerOn])); } catch (e) { /* no storage */ }
+                        buildLayerBar(); };
+    bar.appendChild(b);
+  }
+}
+function colorOf(c) { return new THREE.Color(c[0], c[1], c[2]); }
+function matFrom(a) {                  // a marker's pose: 12 numbers, the 3x4 [R | t] column by column
+  return new THREE.Matrix4().set(a[0], a[3], a[6], a[9], a[1], a[4], a[7], a[10], a[2], a[5], a[8], a[11], 0, 0, 0, 1);
+}
+function ptsGeom(p, cols) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(p, 3));
+  if (cols) g.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+  return g;
+}
+function textSprite(text, h, color) {
+  const cv = document.createElement("canvas"), ctx = cv.getContext("2d"), fs = 48;
+  ctx.font = `600 ${fs}px system-ui, sans-serif`;
+  const lines = text.split("\n"), w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16;
+  cv.width = w; cv.height = fs * 1.25 * lines.length + 8;
+  ctx.font = `600 ${fs}px system-ui, sans-serif`; ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = "#" + color.getHexString(); ctx.textBaseline = "top";
+  lines.forEach((l, i) => ctx.fillText(l, 8, 4 + i * fs * 1.25));
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(cv), depthTest: false}));
+  const hh = (h || 0.02) * lines.length * 1.25; sp.scale.set(hh * cv.width / cv.height, hh, 1); sp.renderOrder = 10;
+  return sp;
+}
+function markerObj(m) {
+  const g = new THREE.Group(); g.matrixAutoUpdate = false; g.matrix.copy(matFrom(m.m));
+  const col = colorOf(m.c), a = m.c[3] === 0 ? 1 : m.c[3], s = m.s;
+  const mat = () => new THREE.MeshStandardMaterial({color: col, transparent: a < 1, opacity: a, roughness: 0.6, depthWrite: a >= 1});
+  const lineMat = () => new THREE.LineBasicMaterial({color: m.cols ? 0xffffff : col, vertexColors: !!m.cols, transparent: a < 1, opacity: a});
+  let o = null;
+  switch (m.type) {
+    case 0: {                          // ARROW: two points, or along x with length scale.x
+      if (m.pts && m.pts.length >= 6) {
+        const p0 = new THREE.Vector3(...m.pts.slice(0, 3)), p1 = new THREE.Vector3(...m.pts.slice(3, 6)), d = p1.clone().sub(p0), L = d.length();
+        if (L > 1e-6) o = new THREE.ArrowHelper(d.normalize(), p0, L, col, Math.min(L * 0.3, s[2] || 0.02), s[1] || 0.01);
+      } else o = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), s[0] || 0.05, col, (s[0] || 0.05) * 0.25, (s[1] || 0.01) * 2);
+      break; }
+    case 1: o = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat()); o.scale.set(...s); break;
+    case 2: o = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), mat()); o.scale.set(...s); break;
+    case 3: { o = new THREE.Group(); const c = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 24), mat()); c.rotation.x = Math.PI / 2; o.add(c); o.scale.set(...s); break; }
+    case 4: case 5: if (m.pts) { const Ln = m.type === 4 ? THREE.Line : THREE.LineSegments; o = new Ln(ptsGeom(m.pts, m.cols), lineMat()); } break;
+    case 6: case 7: if (m.pts) {
+      const n = m.pts.length / 3, geo = m.type === 6 ? new THREE.BoxGeometry(...s) : new THREE.SphereGeometry(0.5, 10, 8);
+      if (m.type === 7) geo.scale(...s);
+      o = new THREE.InstancedMesh(geo, mat(), n); const t = new THREE.Matrix4();
+      for (let i = 0; i < n; i++) {
+        t.makeTranslation(m.pts[3 * i], m.pts[3 * i + 1], m.pts[3 * i + 2]); o.setMatrixAt(i, t);
+        if (m.cols) o.setColorAt(i, new THREE.Color(m.cols[3 * i], m.cols[3 * i + 1], m.cols[3 * i + 2]));
+      }
+    } break;
+    case 8: if (m.pts) o = new THREE.Points(ptsGeom(m.pts, m.cols), new THREE.PointsMaterial({size: s[0] || 0.005, color: m.cols ? 0xffffff : col, vertexColors: !!m.cols})); break;
+    case 9: if (m.text) o = textSprite(m.text, s[2], col); break;
+    case 11: if (m.pts) { const geo = ptsGeom(m.pts, m.cols); geo.computeVertexNormals();
+      o = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color: m.cols ? 0xffffff : col, vertexColors: !!m.cols, side: THREE.DoubleSide, transparent: a < 1, opacity: a}));
+      o.scale.set(...s); } break;
+    default: o = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat()); o.scale.set(...s.map(v => v || 0.02));   // MESH_RESOURCE: its box
+  }
+  if (o) g.add(o);
+  return g;
+}
+function drawLayers(layers) {
+  layerG.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+  layerG.clear();
+  const camCol = {overhead: 0x2f6fed, wrist: 0x1f9d55};
+  for (const [id, L] of Object.entries(layers)) {
+    if (L.kind === "markers") { for (const m of L.markers) layerG.add(markerObj(m)); layerCount[id] = L.markers.length; }
+    else if (L.kind === "cloud") {
+      layerCount[id] = L.n;
+      if (!L.n) continue;
+      const cols = L.cols ? L.cols.map(v => v / 255) : null;
+      layerG.add(new THREE.Points(ptsGeom(L.pts, cols), new THREE.PointsMaterial({size: 0.004, color: cols ? 0xffffff : colorOf(L.color || [0.7, 0.7, 0.7]), vertexColors: !!cols})));
+    } else if (L.kind === "frustum") {
+      layerCount[id] = L.cams.length;
+      for (const c of L.cams) {
+        const p = [], o = c.origin, k = c.corners;
+        for (let i = 0; i < 4; i++) p.push(...o, ...k[i], ...k[i], ...k[(i + 1) % 4]);
+        layerG.add(new THREE.LineSegments(ptsGeom(p), new THREE.LineBasicMaterial({color: camCol[c.name] || 0x888888})));
+        const lab = textSprite(c.name === "overhead" ? "overhead D435i" : "wrist D405", 0.015, new THREE.Color(camCol[c.name] || 0x888888));
+        lab.position.set(o[0], o[1], o[2] + 0.03); layerG.add(lab);
+      }
+    }
+  }
+}
+async function pollLayers() {
+  if (view === "3d") {
+    try {
+      const j = await (await fetch(`/api/layers?want=${[...layerOn].join(",")}`)).json();
+      drawLayers(j.layers);
+      layerList = j.list;
+      buildLayerBar();
+    } catch (e) { /* node down: the world poll says so */ }
+  }
+  setTimeout(pollLayers, 500);
+}
+
+// ---------------- cameras: toggle feeds on / off; the node only subscribes to the ones shown ----------------
+let feedList = [], shown = new Set(["detections", "wrist"]);
+try { const v = JSON.parse(localStorage.getItem("workcell.feeds")); if (Array.isArray(v)) shown = new Set(v); } catch (e) { /* no storage */ }
+const tiles = {};                      // feed id -> {fig, img, cap, live}
+function saveFeeds() { try { localStorage.setItem("workcell.feeds", JSON.stringify([...shown])); } catch (e) { /* no storage */ } }
+function refreshLoop(img, id, isAlive, onFrame) {
+  let asked = 0;
+  const load = () => { asked = Date.now(); img.src = `/api/feed/${id}.jpg?t=${asked}`; };
+  const next = () => { if (isAlive()) setTimeout(() => { if (isAlive()) load(); }, 250); };
+  img.onload = () => { asked = 0; onFrame(true); next(); };
+  img.onerror = () => { asked = 0; onFrame(false); setTimeout(next, 1000); };
+  // a request can hang for good (seen: the page-load burst of tiles through the Windows port relay): ask again
+  const dog = setInterval(() => { if (!isAlive()) clearInterval(dog); else if (asked && Date.now() - asked > 4000) load(); }, 1000);
+  load();
+}
+function buildFeeds() {
+  const chips = $("feedChips"); chips.innerHTML = "";
+  for (const f of feedList) {
+    const b = document.createElement("button");
+    b.className = "chip" + (shown.has(f.id) ? " on" : ""); b.textContent = f.label; b.title = f.topic;
+    b.onclick = () => { shown.has(f.id) ? shown.delete(f.id) : shown.add(f.id); saveFeeds(); buildFeeds(); };
+    chips.appendChild(b);
+  }
+  const grid = $("feeds");
+  for (const id of Object.keys(tiles)) if (!shown.has(id)) { tiles[id].live = false; tiles[id].fig.remove(); delete tiles[id]; }
+  for (const f of feedList) {
+    if (!shown.has(f.id) || tiles[f.id]) continue;
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<img alt="${f.label}"><div class="wait">waiting for frames…</div><figcaption><span>${f.label}</span><span></span></figcaption>`;
+    const t = {fig, img: fig.querySelector("img"), cap: fig.querySelector("figcaption span:last-child"), live: true};
+    tiles[f.id] = t;
+    fig.onclick = () => openLightbox(f);
+    refreshLoop(t.img, f.id, () => t.live, (ok) => { fig.querySelector(".wait").style.display = ok ? "none" : ""; });
+  }
+  // keep the grid in the order of the chips
+  for (const f of feedList) if (tiles[f.id]) grid.appendChild(tiles[f.id].fig);
+  if (!Object.keys(tiles).length) grid.innerHTML = `<div class="empty">all cameras off: switch one on above</div>`;
+  else grid.querySelectorAll(".empty").forEach(e => e.remove());
+}
+let lb = null;
+function openLightbox(f) {
+  lb = {live: true}; $("lbCap").textContent = `${f.label} · ${f.topic}`; $("lightbox").style.display = "grid";
+  const me = lb; refreshLoop($("lbImg"), f.id, () => me.live && lb === me, () => {});
+}
+$("lightbox").onclick = () => { if (lb) lb.live = false; lb = null; $("lightbox").style.display = "none"; };
+async function pollFeeds() {
+  try {
+    const list = await api("/api/feeds");
+    if (JSON.stringify(list.map(f => f.id)) !== JSON.stringify(feedList.map(f => f.id))) { feedList = list; buildFeeds(); }
+    feedList = list;
+    for (const f of list) if (tiles[f.id]) tiles[f.id].cap.textContent = f.age_s === null ? "" :
+      f.kind === "map" ? "last scan" : (f.age_s > 3 ? `stale ${f.age_s.toFixed(0)} s` : "live");
+  } catch (e) { /* node down: the world poll says so */ }
+  setTimeout(pollFeeds, 3000);
+}
+
+// ---------------- panel ----------------
+// the page's own edits win over the server's copy for a moment: a poll that left BEFORE an edit returns the old
+// goal / choice, and taking it overwrote the edit (seen: "Add move" sent the previous goal)
+let editedAt = 0;
+function choose(id, keepYaw) {
+  const o = W && (W.objects || []).find(o => o.id === id);
+  if (o && !keepYaw && id !== sel) goalYaw = wrapYaw(o.yaw / D, o.yaw_period_deg);   // default: turned as it lies now
+  if (id !== sel) goalRest = null;                       // default: the face it rests on now
+  sel = id; editStep = null; editedAt = Date.now(); api("/api/select", {id}); render();
+}
+function setGoal(xy) { goal = xy; editedAt = Date.now(); api("/api/goal", {xy, yaw_deg: goalYaw, rest: goalRest}); render(); }
+$("yaw").addEventListener("input", () => setYaw(+$("yaw").value, false));
+$("yaw").addEventListener("change", () => setYaw(+$("yaw").value, true));
+$("yawNum").addEventListener("change", () => setYaw(+$("yawNum").value, true));
+$("rotL").onclick = () => target() && setYaw(target().yaw + 15);
+$("rotR").onclick = () => target() && setYaw(target().yaw - 15);
+for (const b of $("presets").querySelectorAll("button")) b.onclick = () => {
+  const t = target(); if (!t) return;
+  const now = t.kind === "goal" ? t.now : (W.objects.find(o => o.class === t.obj.class && Math.hypot(o.xy[0] - t.from[0], o.xy[1] - t.from[1]) < 0.03) || {yaw: 0}).yaw / D;
+  const p = b.dataset.p;
+  setYaw(p === "keep" ? now : p === "+90" ? now + 90 : +p);
+};
+function setView(v) {
+  view = v; const is3 = v === "3d";
+  $("tab3d").classList.toggle("on", is3); $("tab2d").classList.toggle("on", !is3);
+  $("map").style.display = is3 ? "none" : ""; $("three").style.display = is3 ? "block" : "none"; $("hint").style.display = is3 ? "none" : "";
+  $("layerBar").style.display = is3 ? "flex" : "none"; $("status3d").style.display = is3 ? "block" : "none";
+  try { localStorage.setItem("workcell.view", v); } catch (e) { /* no storage */ }
+  render();
+}
+$("tab2d").onclick = () => setView("2d");
+$("tab3d").onclick = () => setView("3d");
+$("scanBtn").onclick = () => api("/api/scan", {});
+$("homeBtn").onclick = () => api("/api/home", {});
+$("wristBtn").onclick = () => { api("/api/wrist_scan", {}); shown.add("wrist_map"); saveFeeds(); buildFeeds(); };
+$("cancelBtn").onclick = () => api("/api/cancel", {});
+$("pickBtn").onclick = () => api("/api/pick", {id: sel, xy: goal, yaw_deg: goalYaw, rest: goalRest});
+$("previewBtn").onclick = () => api("/api/pick", {id: sel, xy: goal, yaw_deg: goalYaw, rest: goalRest, preview: true});
+$("addBtn").onclick = () => api("/api/plan/add", {id: sel, xy: goal, yaw_deg: goalYaw, rest: goalRest});
+$("runBtn").onclick = () => { editStep = null; api("/api/plan/run", {}); };
+$("clearBtn").onclick = () => { editStep = null; api("/api/plan/clear", {}); };
+
+function renderFaces(t) {
+  const box = $("faces"), busy = W.task && W.task.busy;
+  box.innerHTML = "";
+  if (!t) { $("faceNote").textContent = ""; return; }
+  if (t.kind === "step") {
+    box.innerHTML = `<span class="note">${t.obj.rest_label || "keeps the face it rests on"}</span>`;
+    $("faceNote").textContent = ""; return;
+  }
+  const now = t.obj.rest || "upright";
+  for (const f of t.obj.rests || []) {
+    const b = document.createElement("button");
+    const short = f.name === "upright" ? "standing" : f.name === "upside_down" ? "upside down" : f.name === "lying" ? "lying"
+                : "on side " + f.name.replace("side_", "");
+    b.innerHTML = short + (f.moves ? `<span class="n">${f.moves} move${f.moves > 1 ? "s" : ""}</span>` : "");
+    b.className = (t.rest === f.name ? "on " : "") + (f.name === now ? "now" : "");
+    b.disabled = busy || f.moves === null || !goal;
+    b.title = f.moves === null ? `${f.label}: not possible with this gripper (no grasp can turn it there)`
+            : f.moves === 0 ? `${f.label} (as it is now)` : `${f.label}: ${f.moves} move(s) via ${f.via.join(" -> ")}`;
+    b.onclick = () => { goalRest = f.name === now ? null : f.name;
+                        const P = f.period_deg; goalYaw = wrapYaw(goalYaw, P); if (goal) setGoal(goal); render(); };
+    box.appendChild(b);
+  }
+  const f = faceOf(t.obj, t.rest);
+  $("faceNote").textContent = f && f.moves ? `${f.label}, ${f.moves} move${f.moves > 1 ? "s" : ""}` : "";
+}
+function renderRotation() {
+  const t = target(), P = t && t.period;
+  renderFaces(t);
+  const busy = W.task && W.task.busy;
+  for (const e of $("rot").querySelectorAll(".row button, .row input")) e.disabled = !t || !P || busy || (t.kind === "goal" && !goal);
+  if (!t) { $("rotWhat").innerHTML = "Rotation at the goal"; $("rotNow").textContent = ""; $("rotNote").textContent = "choose an object (or a plan step) first"; return; }
+  $("rotWhat").innerHTML = t.kind === "step"
+    ? `Editing step <b>${t.i + 1}</b>: ${t.obj.label} <button id="doneEdit" title="Esc">done</button>`
+    : `Rotation of the <b>${t.obj.label}</b> at the goal`;
+  if ($("doneEdit")) $("doneEdit").onclick = () => { editStep = null; render(); };
+  const h = P ? Math.min(P, 360) / 2 : 180;
+  $("yaw").min = -h; $("yaw").max = h;
+  if (document.activeElement !== $("yawNum")) $("yawNum").value = Math.round(t.yaw);
+  if (!drag || drag.kind !== "turn") $("yaw").value = t.yaw;
+  if (!P) { $("rotNote").textContent = `The ${t.obj.label} is round standing up: any rotation looks the same, so it is placed as it comes.`; $("rotNow").textContent = ""; return; }
+  const now = t.kind === "goal" ? t.now : null;
+  $("rotNow").textContent = now === null ? "" : `now ${Math.round(wrapYaw(now, P))}° → turn ${Math.round(wrapYaw(t.yaw - now, P)) >= 0 ? "+" : ""}${Math.round(wrapYaw(t.yaw - now, P))}°`;
+  $("rotNote").textContent = P >= 360 ? "" : `A ${t.obj.label} looks the same turned by ${P}°, so ${-h}° … ${h}° covers every placement. 0° = its long side along the robot's x (forward, up on the map).`;
+}
+
+function render() {
+  if (!W) return;
+  view === "2d" ? draw2d() : draw3d();
+  const ul = $("objs"); ul.innerHTML = "";
+  for (const o of W.objects || []) {
+    const li = document.createElement("li");
+    li.className = (o.id === sel && editStep === null ? "sel" : "") + (o.pickable === false ? " blocked" : "");
+    const yawTxt = o.yaw_period_deg ? ` · ${Math.round(wrapYaw(o.yaw / D, o.yaw_period_deg))}°` : "";
+    li.innerHTML = `<span class="swatch" style="background:${o.color}"></span><b>${o.label}</b>
+      <span class="meta">(${(o.xy[0] * 100).toFixed(1)}, ${(o.xy[1] * 100).toFixed(1)}) cm${yawTxt} · ${Math.round(o.score * 100)}%</span>`
+      + (o.pickable === false ? `<span class="why">can't pick: ${o.blocked}${o.checked_with ? ` [${o.checked_with}]` : ""}</span>` : "");
+    li.onclick = () => choose(o.id);
+    ul.appendChild(li);
+  }
+  if (!(W.objects || []).length) ul.innerHTML = `<li class="empty">${W.scan && W.scan.time ? "nothing detected" : "press Scan"}</li>`;
+  $("nObj").textContent = (W.objects || []).length ? `${W.objects.length} found` : "";
+  const so = (W.objects || []).find(o => o.id === sel);
+  $("selTxt").textContent = so ? `${so.label} at (${(so.xy[0] * 100).toFixed(1)}, ${(so.xy[1] * 100).toFixed(1)}) cm` : "–";
+  $("goalTxt").textContent = goal ? `(${(goal[0] * 100).toFixed(1)}, ${(goal[1] * 100).toFixed(1)}) cm${W.goal_problem ? " · " + W.goal_problem : ""}${W.goal_blocked_by ? " · on the " + W.goal_blocked_by : ""}` : "drag an object, or click the desk";
+  renderRotation();
+  const busy = W.task && W.task.busy, plan = W.plan || [];
+  if (editStep !== null && !(plan[editStep] && plan[editStep].status === "queued" && !busy)) editStep = null;
+  const pl = $("plan"); pl.innerHTML = "";
+  plan.forEach((st, i) => {
+    const e = stepEdit[i] || {}, to = e.xy || st.to, yaw = e.yaw ?? st.yaw_deg;
+    const li = document.createElement("li");
+    li.className = editStep === i ? "editing" : "";
+    li.title = st.status === "queued" ? "click to edit its goal and rotation" : (st.result || "");
+    li.innerHTML = `<span class="swatch" style="background:${st.color}"></span><b>${st.label}</b>
+      <span class="meta">→ (${(to[0] * 100).toFixed(1)}, ${(to[1] * 100).toFixed(1)}) cm${st.yaw_period_deg ? `, ${Math.round(yaw)}°` : ""}${st.rest_label ? `, ${st.rest_label}` : ""}</span>
+      <span class="st ${st.status}" title="${st.result || ""}">${st.status}</span>`;
+    if (st.status === "queued" && !busy) li.onclick = () => { editStep = editStep === i ? null : i; render(); };
+    if (!busy) { const b = document.createElement("button"); b.textContent = "×"; b.title = "remove";
+                 b.onclick = (ev) => { ev.stopPropagation(); if (editStep === i) editStep = null; api("/api/plan/remove", {index: i}); };
+                 li.appendChild(b); }
+    pl.appendChild(li);
+  });
+  if (!plan.length) pl.innerHTML = `<li class="empty">choose an object + goal, then Add move</li>`;
+  $("nPlan").textContent = plan.length ? `${plan.filter(st => st.status === "done").length}/${plan.length} done` : "";
+  $("addBtn").disabled = !(so && goal) || busy || !!W.goal_problem;
+  $("runBtn").disabled = !plan.some(st => st.status !== "done") || busy || (W.scan && W.scan.busy);
+  $("clearBtn").disabled = !plan.length || busy;
+  $("pickBtn").disabled = !(so && goal) || busy || (W.scan && W.scan.busy) || !!W.goal_problem;
+  $("previewBtn").disabled = $("pickBtn").disabled;
+  $("scanBtn").disabled = busy || (W.scan && W.scan.busy);
+  $("homeBtn").disabled = busy;
+  const ws = W.wrist_scan || {};
+  $("wristBtn").style.display = feedList.some(f => f.id === "wrist_map") ? "" : "none";
+  $("wristBtn").disabled = busy || ws.busy || (W.scan && W.scan.busy);
+  $("wristBtn").textContent = ws.busy ? "Scanning…" : "Wrist scan";
+  if (ws.result && ws.result !== lastWristResult) { flash("wrist map: " + ws.result); lastWristResult = ws.result; }
+  $("cancelBtn").disabled = !busy;
+  $("taskPill").textContent = busy ? (W.task.state || "working") : (W.scan && W.scan.busy ? "scanning" : "idle");
+  $("taskPill").className = "pill" + (busy || (W.scan && W.scan.busy) ? " busy" : "");
+  $("scanPill").textContent = W.scan && W.scan.time ? `scanned ${Math.round(W.now - W.scan.time)} s ago` : "no scan yet";
+  const log = (W.task && W.task.log) || [];
+  if (log.length !== lastLogLen) { $("log").textContent = log.join("\n"); $("log").scrollTop = 1e9; lastLogLen = log.length; }
+  const res = W.task && W.task.result;
+  $("resultTxt").innerHTML = res ? `<span class="${res.startsWith("SUCCESS") ? "result-ok" : "result-bad"}">${res}</span>` : "";
+}
+
+async function poll() {
+  try {
+    W = await api("/api/world");
+    const mine = drag || Date.now() - editedAt < 1500;
+    if (!mine && W.selected !== undefined && W.selected !== sel) sel = W.selected;        // RViz can choose too
+    if (!mine && W.goal && (!goal || Math.hypot(W.goal.xy[0] - goal[0], W.goal.xy[1] - goal[1]) > 1e-4)) goal = W.goal.xy;
+    if (!mine && W.goal && Math.abs(W.goal.yaw_deg - goalYaw) > 0.05) goalYaw = W.goal.yaw_deg;   // ... and turn it
+    if (!mine && W.goal && (W.goal.rest || null) !== goalRest) goalRest = W.goal.rest || null;
+    $("cellPill").textContent = `${W.cell.robot} · ${W.cell.scene}`; $("cellPill").className = "pill live";
+    render();
+  } catch (e) {
+    $("cellPill").textContent = "workcell node not reachable"; $("cellPill").className = "pill";
+  }
+  setTimeout(poll, 400);
+}
+window.addEventListener("resize", render);
+poll();
+pollFeeds();
+pollJoints();
+pollLayers();
+try { if (localStorage.getItem("workcell.view") === "3d") setView("3d"); } catch (e) { /* no storage */ }
+</script>
+</body>
+</html>

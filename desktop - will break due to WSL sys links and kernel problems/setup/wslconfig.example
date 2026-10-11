@@ -1,0 +1,8 @@
+# Copy to %USERPROFILE%\.wslconfig (merge with any existing [wsl2] section), then run `wsl --shutdown`.
+# Mirrored networking makes WSL share Windows' network interfaces, so ROS 2 / DDS discovery
+# between Isaac Sim (Windows) and ROS nodes (WSL) works without port forwarding.
+[wsl2]
+networkingMode=mirrored
+
+[experimental]
+hostAddressLoopback=true

@@ -1,0 +1,8 @@
+# Ask the perception node for a FRESH detection: computed from a camera frame captured after this
+# request arrived (so it never returns a stale estimate from while the arm was moving).
+string object_class        # e.g. "soup_can"; empty = all classes
+float32 timeout_s          # how long to wait for a fresh frame (0 = default 2 s)
+---
+bool success               # false = no fresh frame in time (perception or camera not running)
+string message
+vision_msgs/Detection3DArray detections   # may be empty = "nothing there" (that is a valid answer)

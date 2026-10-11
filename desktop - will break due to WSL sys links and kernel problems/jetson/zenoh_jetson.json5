@@ -1,0 +1,36 @@
+// zenoh-bridge-ros2dds on the JETSON: makes the camera topics reachable from the PC over TCP.
+//
+// Topology: this bridge LISTENS on 7447; the PC's container router connects to it (config/remote_sensors.yaml).
+// So the PC needs no inbound firewall rule; the Jetson must accept TCP 7447 from the PC.
+//
+// Only what the PC needs leaves the Jetson: COMPRESSED images (JPEG color ~0.6 MB/s, lossless PNG depth
+// ~3 MB/s at 15 fps) + camera_info. The raw images (~330 Mbit/s) are never sent. Nothing is accepted FROM the
+// network (no subscribers, services or actions allowed): the Jetson is a sensor, not something to command.
+{
+  plugins: {
+    ros2dds: {
+      domain: 42,                               // = ROS_DOMAIN_ID of the camera container
+      allow: {
+        publishers: [
+          "/camera/camera/color/image_raw/compressed",
+          "/camera/camera/aligned_depth_to_color/image_raw/compressedDepth",
+          "/camera/camera/color/camera_info",
+          "/camera/camera/aligned_depth_to_color/camera_info",
+          // the wrist D405, if it is wired to the Jetson too (namespace wrist_camera, config/camera_d405.yaml)
+          "/wrist_camera/camera/color/image_raw/compressed",
+          "/wrist_camera/camera/aligned_depth_to_color/image_raw/compressedDepth",
+          "/wrist_camera/camera/color/camera_info",
+        ],
+        subscribers: [],
+        service_servers: [],
+        service_clients: [],
+        action_servers: [],
+        action_clients: [],
+      },
+      pub_max_frequencies: [".*=15"],         // never more than 15 Hz per topic onto the network
+    },
+  },
+  mode: "router",
+  listen: { endpoints: ["tcp/0.0.0.0:7447"] },
+  scouting: { multicast: { enabled: false } },  // the PC connects explicitly; no LAN-wide discovery chatter
+}

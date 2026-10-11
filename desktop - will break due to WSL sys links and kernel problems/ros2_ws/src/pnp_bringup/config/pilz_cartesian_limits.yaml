@@ -1,0 +1,7 @@
+# Cartesian limits for the Pilz industrial motion planner (LIN / CIRC moves = straight-line approach,
+# descend and lift during pick & place). Conservative values for a first robot.
+cartesian_limits:
+  max_trans_vel: 0.5      # m/s
+  max_trans_acc: 1.0      # m/s^2
+  max_trans_dec: -1.0     # m/s^2
+  max_rot_vel: 1.0        # rad/s

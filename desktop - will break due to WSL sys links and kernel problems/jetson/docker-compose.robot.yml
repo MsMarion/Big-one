@@ -1,0 +1,52 @@
+# The Jetson as the ROBOT (SO-101 + wrist D405); the PC is the brain. docs/learning/22_jetson_d405.md
+# On the Jetson, with the repo cloned to ~/pnp:
+#   cd ~/pnp
+#   docker compose -f jetson/docker-compose.robot.yml build
+#   PNP_HW_MOCK=true docker compose -f jetson/docker-compose.robot.yml up -d      # first: no servo board needed
+#   docker compose -f jetson/docker-compose.robot.yml logs -f robot
+# Then on the PC: config/remote_sensors.yaml enabled + this Jetson's IP, restart the container's router, and start
+# the brain:  bringup.launch.py role:=brain sim:=false camera:=none scene:=config/scenes/so101_workcell.yaml
+services:
+  robot:
+    build:
+      context: ..
+      dockerfile: jetson/Dockerfile.robot
+    image: pnp-jetson-robot:jazzy
+    # the entry script from the REPO (not the copy baked into the image): an edit + push takes effect on the
+    # next start, no image rebuild (a stale baked copy once ignored PNP_BUILD_ONLY and started a 2nd stack)
+    command: ["bash", "/repo/jetson/robot_entry.sh"]
+    restart: unless-stopped
+    network_mode: host            # DDS between the two containers on the Jetson, no port mapping
+    ipc: host                     # Fast DDS shared memory between them
+    privileged: true              # USB: the D405 (librealsense opens /dev/bus/usb) and the servo board (/dev/ttyACM0)
+    volumes:
+      - /dev:/dev
+      - ..:/repo                  # the repo (code + config + calibration); edits on the Jetson are live
+      - pnp_ws:/ws                # the built workspace, kept between restarts
+      - ../data:/data
+    environment:
+      - ROS_DOMAIN_ID=42
+      - PNP_SCENE=${PNP_SCENE:-config/scenes/so101_workcell.yaml}   # a PATH: pnp_core/catalog.py reads it too
+      - PNP_HW_MOCK=${PNP_HW_MOCK:-false}
+      - PNP_CAMERA=${PNP_CAMERA:-local}
+      - PNP_RMW=rmw_cyclonedds_cpp    # setup/ros_env.sh: services across the zenoh link to the PC need Cyclone
+      - PNP_RS_INITIAL_RESET=false
+      - PNP_MAX_VELOCITY_SCALING=0.15   # the real arm: every MoveIt move capped at 15 % (tools may ask for less)
+      - PNP_WRIST_REFINE=false          # the close-look node: 67 % CPU idle; off until it runs only during a pick
+      - PNP_UNSTICK_INSIDE=0.05         # a joint resting past its limit is nudged ~3 deg inside (gravity sag)
+      - PNP_GOAL_TOLERANCE_RAD=0.07     # ~4 deg: gravity sag (doc 22); hand-eye uses the MEASURED joints anyway      # the D405's startup power-cycle sometimes never came back here (doc 22)
+
+  bridge:
+    # the SAME zenoh bridge version as the PC (1.10.1), official multi-arch image; the robot allow-list
+    image: eclipse/zenoh-bridge-ros2dds:1.10.1
+    restart: unless-stopped
+    network_mode: host
+    ipc: host
+    volumes:
+      - ./zenoh_robot.json5:/zenoh_robot.json5:ro
+    command: ["-c", "/zenoh_robot.json5"]
+    environment:
+      - ROS_DOMAIN_ID=42
+
+volumes:
+  pnp_ws:

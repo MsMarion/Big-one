@@ -1,0 +1,18 @@
+# MoveIt 3D sensor (Phase 5, Layer B): only loaded with  bringup.launch.py obstacle_source:=perceived
+# (named octomap_sensors.yaml, not sensors_3d.yaml, so MoveItConfigsBuilder doesn't pick it up by default).
+#
+# move_group turns /perception/obstacle_cloud (pnp_perception/obstacle_cloud_node.py) into an Octomap:
+#   - removes points on the robot itself and inside collision objects (the table), with padding_offset
+#   - casts rays from the cloud's frame (the camera) to each point: cells on the way are FREE, end cells OCCUPIED
+#   - plans avoid occupied cells (unknown cells count as free: hence the "columns" in pnp_core/cloud.py)
+sensors:
+  - obstacle_cloud
+obstacle_cloud:
+  sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
+  point_cloud_topic: /perception/obstacle_cloud
+  max_range: 2.0
+  point_subsample: 1              # the node already subsampled (every 4th pixel, 2 cm voxels)
+  padding_offset: 0.02            # [m] grow robot / object shapes by this much when removing their points
+  padding_scale: 1.0
+  max_update_rate: 5.0
+  filtered_cloud_topic: /perception/obstacle_cloud_filtered     # what survived MoveIt's filter (RViz)

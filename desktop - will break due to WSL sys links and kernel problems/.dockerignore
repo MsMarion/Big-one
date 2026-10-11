@@ -1,0 +1,5 @@
+# Allowlist: images only need these files; source is bind-mounted at runtime (PC: the Python requirements; Jetson robot image: its entry script).
+*
+!requirements-perception.txt
+!models/foundationpose/FoundationPose/requirements.txt
+!jetson/robot_entry.sh

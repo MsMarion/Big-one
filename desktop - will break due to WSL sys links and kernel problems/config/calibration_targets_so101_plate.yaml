@@ -1,0 +1,81 @@
+# Calibration targets of the SO-101 PLATE cell (config/scenes/so101_plate_tags.yaml; the boards are the SO-101 desk
+# cell's, config/calibration_targets_so101.yaml; format and math:
+# config/calibration_targets.yaml, docs/learning/16_calibration.md).
+#
+# The overhead D435i (eye-to-hand) is calibrated with a small ChArUco board held in the SO-101's jaw. The board is
+# clamped at one short edge between the jaws and sticks straight out past the tips; the arm holds it roughly
+# horizontal, printed face UP, ~0.3 m under the camera. Sized for that: 35 mm squares, 27 mm markers ->
+# 4.5 mm cells ~ 9 px at 0.3 m (>= 6 px: 16_calibration.md). 175 x 140 mm: thin, stiff and light (foam board / 3 mm
+# plywood, < 40 g). Print models/calibration/so101_hand_board.png at 100 % (tools/make_calibration_targets.py).
+
+hand_board:
+  dictionary: DICT_4X4_50
+  squares_x: 5
+  squares_y: 4
+  square_m: 0.035
+  marker_m: 0.027
+  first_id: 0
+  # in gripper_frame_link (z = out of the jaws, the fixed jaw's inner face at x = 0, the moving jaw at -x):
+  # the board's y axis runs out along the jaws, its plane is the jaws' contact plane, printed face toward -x
+  # (the moving jaw side). Center = 1 cm clamped + half the board's 140 mm beyond the tips (+6 mm).
+  mount: {parent: gripper_frame_link, center: [-0.002, 0.0, 0.066], x_axis: [0, 1, 0], y_axis: [0, 0, 1]}
+  image: so101_hand_board.png
+  # calibration views: sampled in JOINT space (a 5-joint arm can't hold a board at any free pose; pnp_core/calibration.py
+  # joint_space_board_views): kept where the board is face-up toward the camera, wholly in view, 0.2-0.42 m away.
+  # ranges: per arm joint (shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll) to sample in [rad]
+  poses:
+    mode: joint
+    dist: [0.18, 0.45]
+    max_view_angle_deg: 45
+    # >= 60 % of the board's corners in the image (not all of it): with the camera off straight-above (clamped where
+    # it fits), "the whole board" left 0 reachable views; ChArUco uses whatever corners it sees
+    min_visible: 0.6
+    # shoulder leaning BACK: the board sticks ~16 cm out past the jaw, so the hand must stay near the base for the
+    # board to be under the camera (1 in ~5000 random configurations otherwise; this way ~1 in 2000, < 10 s)
+    ranges: [[-0.7, 0.7], [-1.7, 0.3], [-1.6, 1.6], [-1.6, 1.6], [-2.7, 2.8]]
+
+table_board:          # lying on the desk: the WRIST camera's (D405, eye-in-hand) calibration target, only while calibrating
+  # Sized for the D405 (640x360, fx ~331) 17-27 cm above it: 23 mm markers -> 3.8 mm cells ~ 4.5-7.5 px (the sim
+  # detects every visible one at 26 cm); 150 x 120 mm fits the image from ~17 cm. Print models/calibration/so101_table_board.png at 100 %, glue it flat, measure.
+  dictionary: DICT_4X4_50
+  squares_x: 5
+  squares_y: 4
+  square_m: 0.030
+  marker_m: 0.023
+  first_id: 20          # the hand board uses ids 0-9
+  image: so101_table_board.png
+  sim_pose: {xy: [0.19, 0.0], yaw_deg: 0.0}     # where the sim puts it (the solver doesn't know this)
+  # views: sampled in JOINT space (pnp_core/calibration.py joint_space_wrist_views): the wrist camera 17-27 cm from
+  # the board's center, within 35 deg of straight above it, the whole board in the image. The jaws hide part of the
+  # image's bottom third, where the board always reaches at these distances (a 5-joint arm can't put it all above
+  # them: 0 of 300k sampled poses): ChArUco uses the corners it sees (>= 6 of 12), the jaws are opened wide, and in
+  # the sim the brick is moved off the board.
+  poses:
+    mode: joint
+    dist: [0.17, 0.27]
+    max_view_angle_deg: 35
+
+apriltags:            # the plate's fixed references: the drift monitor + `calibrate.py locate` (one image -> the camera pose)
+  # 60 mm (8 x 8 cells of 7.5 mm ~ 9 px at 0.5 m): bigger than the desk cell's 40 mm, read further across the plate.
+  # Positions: base frame (base_link origin on the board), x forward / y left [m]. Corners + sides of the 3' x 3'
+  # board and a ring just outside the arm's reach (0.22 m): seen at short range, never under a brick. The layout,
+  # its visibility from the fixed camera and a sheet to place them: tools/tag_layout.py so101_plate_tags --pdf
+  dictionary: DICT_APRILTAG_36h11
+  size_m: 0.060
+  image_prefix: so101plate_
+  # Placed by the visibility check (tools/tag_layout.py): the D435i at the parsed real pose looks BACK at the robot
+  # from 53 cm in front, so it covers the board from ~17 cm behind the base (+-37 cm wide) to ~41 cm in front
+  # (+-18 cm): the board's front corners / front edge are behind it and its side edges outside the view. The tags
+  # span the corners and sides of what it sees (the widest spread = the best single-image pose), outside the pick
+  # area; none directly behind the base (the base would hide it); none over the board's edge (its view reaches past
+  # the back edge); printed squares (9 cm) at least ~1.5 cm apart.
+  tags:
+    - {id: 1, where: view far-left (behind base),   sim_xy: [-0.030,  0.22], sim_yaw_deg: 0.0}
+    - {id: 2, where: view far-right (behind base),  sim_xy: [-0.045, -0.27], sim_yaw_deg: 0.0}
+    - {id: 3, where: beside base left,              sim_xy: [ 0.00,  0.12], sim_yaw_deg: 0.0}
+    - {id: 4, where: beside base right,             sim_xy: [ 0.00, -0.13], sim_yaw_deg: 0.0}
+    - {id: 5, where: view left side,                sim_xy: [ 0.11,  0.185], sim_yaw_deg: 0.0}
+    - {id: 6, where: view right side,               sim_xy: [ 0.11, -0.215], sim_yaw_deg: 0.0}
+    - {id: 7, where: view near-left,                sim_xy: [ 0.30,  0.125], sim_yaw_deg: 0.0}
+    - {id: 8, where: view near-right,               sim_xy: [ 0.30, -0.15], sim_yaw_deg: 0.0}
+    - {id: 9, where: view near-centre,              sim_xy: [ 0.33,  0.00], sim_yaw_deg: 0.0}

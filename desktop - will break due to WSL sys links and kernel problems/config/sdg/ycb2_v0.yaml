@@ -1,0 +1,14 @@
+# Two target classes: the soup can AND the cracker box (each labeled with its catalog yolo_class), same
+# randomization as soup_can_v0. v0 = 20 frames to look at before scaling up.
+base: soup_can_v0.yaml
+name: ycb2_v0
+seed: 10
+num_frames: 20
+targets:
+  objects: [tomato_soup_can, cracker_box]   # pool: count[1] instances of each; a frame draws from the pool
+  count: [0, 4]                             # targets per frame (any mix of the two classes)
+  p_zero: 0.08
+distractors:
+  # cracker_box is a target now; the other cans/boxes stay as hard negatives ("not every box is OUR box")
+  objects: [sugar_box, mustard_bottle, master_chef_can, tuna_fish_can, potted_meat_can,
+            pudding_box, gelatin_box, bleach_cleanser, mug, bowl, banana, wood_block, foam_brick]

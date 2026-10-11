@@ -1,0 +1,5 @@
+# Held-out test set for the LEGO detector (different seed, never trained on).
+base: lego_v0.yaml
+name: lego_test
+seed: 29
+num_frames: 300

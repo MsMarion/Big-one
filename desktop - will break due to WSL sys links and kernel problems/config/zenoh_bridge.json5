@@ -1,0 +1,26 @@
+// Shared config for BOTH zenoh-bridge-ros2dds processes (Windows client + container router).
+// Mode, endpoints and domain are given on the command line (setup/zenoh_windows.ps1, setup/zenoh_container.sh).
+//
+// Why these settings (learned the hard way, docs/learning/00_setup.md):
+//  - Camera images are ~1 MB each. If they are routed as non-droppable ("reliable") messages, a short
+//    slowdown blocks the send queue; after 5 s zenoh CLOSES THE WHOLE SESSION ("Unable to push non
+//    droppable network message ... Closing transport!") and all topics stop. Isaac therefore publishes
+//    images best-effort (sim/ros_graph.py), which the bridge routes as droppable, and they get low priority.
+//  - Control traffic (clock, joint states/commands, TF) gets the highest priority so it never waits
+//    behind an image.
+{
+  plugins: {
+    ros2dds: {
+      // "<regex>=<priority 1..7>[:express]"   1 = real-time (highest), 5 = default data, 7 = background
+      pub_priorities: [
+        ".*clock=1:express",
+        ".*isaac_joint_(states|command)=1:express",
+        ".*joint_states=1:express",
+        ".*tf(_static)?=2",
+        ".*image_raw=6",
+      ],
+      // Downsample camera images to a steady 15 Hz (plenty for pick & place perception).
+      pub_max_frequencies: [".*image_raw=15"],
+    },
+  },
+}

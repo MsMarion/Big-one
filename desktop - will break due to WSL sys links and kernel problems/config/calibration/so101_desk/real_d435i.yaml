@@ -1,0 +1,20 @@
+# Hand-eye calibration of the d435i (tools/calibrate.py fixed). camera_tf_node publishes
+# T_parent_optical as base_link -> camera_color_optical_frame. history: earlier results, newest first.
+camera: d435i
+parent: base_link
+optical_frame: camera_color_optical_frame
+T_parent_optical:
+  xyz: [0.528759, 0.012117, 0.330768]
+  quat_xyzw: [-0.6658209, -0.6646944, 0.2551037, 0.2231279]
+date: '2026-10-11T23:31:51'
+method: locate (desk targets)
+points: 12
+reprojection_px: 0.167
+targets: [board placed by the wrist camera (12 corners)]
+history:
+- date: '2026-10-11T19:34:19'
+  T_parent_optical:
+    xyz: [-0.06673, -0.008166, 0.355154]
+    quat_xyzw: [-0.6629932, 0.6851165, -0.2012818, 0.2248134]
+  method: locate (desk targets)
+  reprojection_px: 0.169

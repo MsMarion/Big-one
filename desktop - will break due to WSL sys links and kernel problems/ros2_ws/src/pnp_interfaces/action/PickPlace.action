@@ -1,0 +1,49 @@
+# Pick an object (found by perception) and place it upright at a goal position on the table.
+# All positions are in the robot base frame (fr3_link0), meters / radians.
+
+# ---- goal ----
+string object_class          # e.g. "soup_can" (empty = the configured default object)
+bool use_default_place       # true: place at the scene's configured goal (config/scenes/*.yaml)
+float64 place_x
+float64 place_y
+float64 place_yaw            # ignored for rotationally symmetric objects
+string speed_profile         # "dev" (default) | "fast"  (config/robot_fr3.yaml arm.speed_profiles)
+bool use_pick_hint           # several objects of that class: pick the one detected nearest (pick_x, pick_y)
+float64 pick_x
+float64 pick_y
+string place_rest            # "" = keep the face it rests on; else a face of pnp_core.reorient.rest_poses
+                             # ("side_x+", "upside_down", "lying", ...) reachable in ONE move
+bool preview                 # plan only: detect, check the gripper's space, plan EVERY segment (nothing moves),
+                             # show the path (/display_planned_path); outcome SUCCESS = feasible, else why not
+bool grab_only               # detect, grasp, lift, check the grip -- then put it down where it is and go home (the
+                             # grab soak: data/grab_soak.py); no place goal needed
+---
+# ---- result ----
+uint8 SUCCESS=0
+uint8 NO_OBJECT=1            # perception found nothing (after retries)
+uint8 UNREACHABLE=2          # no motion plan to the object or the goal
+uint8 GRASP_FAILED=3         # fingers closed on nothing / wrong width, after all attempts
+uint8 DROPPED=4              # object slipped out during transport
+uint8 PLACED_OFF_TARGET=5    # released, but re-detection says it's not at the goal
+uint8 MOTION_FAILED=6        # a planned motion failed during execution
+uint8 CANCELED=7
+uint8 ERROR=8                # unexpected exception (see message)
+uint8 SCENE_CHANGED=9        # map_mode freeze_per_task + change_policy stop: the scene changed during the task
+uint8 CALIBRATION_DRIFT=10   # calibration_policy stop: the fixed camera moved since its calibration (/calibration/status)
+uint8 UNCERTAIN=11           # the overhead estimates disagree and the close look couldn't settle it: not grasped
+uint8 BLOCKED=12             # an obstacle stands where the open gripper needs room, for every grasp: not attempted
+                             # (pnp_core/pickability.py); the arm doesn't move
+uint8 outcome
+string outcome_name
+string message
+float64[] picked_at          # [x, y, z_top] of the object as detected before grasping
+float64[] placed_at          # [x, y, z_top] re-detected after placing (empty if not re-detected)
+float64 placement_error_m    # |placed_at - goal| in XY (NaN if not re-detected)
+uint8 grasp_attempts
+float32 duration_s
+---
+# ---- feedback ----
+string state                 # DETECT, MOVE_PREGRASP, APPROACH, GRASP, VERIFY_GRASP, LIFT, MOVE_PREPLACE,
+                             # DESCEND, RELEASE, RETREAT, HOME, VERIFY_PLACE
+uint8 attempt
+string detail

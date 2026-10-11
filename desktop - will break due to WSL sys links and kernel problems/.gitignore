@@ -1,0 +1,50 @@
+# generated data (regenerable from config + seed)
+data/raw/
+data/datasets/
+data/runs/
+# model weights (model_card*.yaml files ARE tracked)
+models/*.pt
+models/*.onnx
+models/*.engine
+# ultralytics training output
+runs/
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+# colcon (if ever built in-tree)
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+# editors / OS
+.vscode/
+.idea/
+Thumbs.db
+
+# downloaded third-party binaries (zenoh bridge, etc.)
+tools_bin/
+data/preview/
+# third-party sources imported from ros2_ws/pnp.repos
+ros2_ws/src/external/
+data/logs/
+# local tool state
+.claude/
+# FoundationPose: third-party code (NVIDIA research license) + NGC model files, downloaded locally (docs/learning/10_6d_pose.md)
+models/foundationpose/
+# calibration runs: views + samples (tools/calibrate.py) and check reports (tools/calibration_check.py)
+data/calibration/
+
+# fetched robot descriptions (robots/*/fetch_description.sh)
+robots/*/description/
+
+# written by bringup at runtime (on the Jetson /data is the repo's data/)
+data/pnp_active_scene
+data/pnp_active_joint_offsets
+
+# rendered DINO templates (tools/render_templates.py): regenerable
+data/templates/
+# vision model weights (tools/stage_vision_models.sh)
+models/vision/

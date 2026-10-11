@@ -1,0 +1,31 @@
+# Hand-eye calibration of the d435i (tools/calibrate.py fixed). camera_tf_node publishes
+# T_parent_optical as base_link -> camera_color_optical_frame. history: earlier results, newest first.
+camera: d435i
+parent: base_link
+optical_frame: camera_color_optical_frame
+T_parent_optical:
+  xyz: [0.215664, 0.060192, 0.455938]
+  quat_xyzw: [-0.74459, -0.6489156, 0.1538095, 0.0289292]
+date: '2026-10-11T18:30:50'
+method: daniilidis+refine
+views: 11
+rotation_span_deg: 68.7
+reprojection_px: 0.24
+residual: {pos_mm_rms: 0.247, rot_deg_rms: 0.1896}
+board: hand_board
+board_found:
+  xyz: [-0.00192, -0.087244, -0.004102]
+  quat_xyzw: [0.4995457, 0.4994681, 0.5004327, 0.5005525]
+samples: data/calibration/d435i_20261009_182842
+sim_truth_error: {pos_mm: 0.49, rot_deg: 0.0363}
+sim_profile: misplaced_camera
+before: {pos_mm: 32.359, rot_deg: 4.001}
+history:
+- date: '2026-10-11T18:20:53'
+  T_parent_optical:
+    xyz: [0.243494, 0.043332, 0.451817]
+    quat_xyzw: [-0.7405602, -0.6485387, 0.1645643, 0.0623444]
+  method: locate (desk targets)
+  reprojection_px: 0.216
+  sim_truth_error: {pos_mm: 32.358, rot_deg: 4.001}
+  sim_profile: misplaced_camera

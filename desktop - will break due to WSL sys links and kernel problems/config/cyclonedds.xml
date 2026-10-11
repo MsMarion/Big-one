@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Cyclone DDS for the ROS nodes in the pnp containers (PC and Jetson), set by setup/ros_env.sh (CYCLONEDDS_URI).
+  Why Cyclone (2026-10-11): ROS SERVICES across the PC <-> Jetson zenoh link only work when both ends' nodes use the
+  same DDS as zenoh-bridge-ros2dds (Cyclone): a Fast DDS client's requests are rejected by the bridge ("less than 20
+  bytes"), a Fast DDS server never answers the bridge's requests. Measured: Cyclone <-> Cyclone across the link OK.
+  Big socket buffers: camera images are ~1 MB (many UDP fragments); with the Linux default (~208 KB) a burst
+  overflows the receive buffer and the whole image is lost. "max" asks for 32 MB but doesn't fail where the kernel
+  allows less (net.core.rmem_max: WSL 64 MB; the Jetson needs jetson/setup_host.sh --apply).
+-->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain Id="any">
+    <Internal>
+      <SocketReceiveBufferSize min="default" max="32MB"/>
+      <SocketSendBufferSize min="default" max="32MB"/>
+    </Internal>
+  </Domain>
+</CycloneDDS>

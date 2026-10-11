@@ -1,0 +1,6 @@
+# Held-out synthetic TEST set: same distribution, different seed, never used for training or model selection.
+# Its score tells us whether the model generalizes beyond the exact frames it was tuned on.
+base: soup_can_v0.yaml
+name: soup_can_test
+seed: 2
+num_frames: 300

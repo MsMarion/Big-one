@@ -1,0 +1,29 @@
+# realsense2_camera parameters for the REAL D435i, shared by both ways of connecting it:
+#   camera:=local   the driver runs in the PC's pnp container (camera on this PC's USB, via usbipd -> WSL)
+#   camera:=jetson  the driver runs on the Jetson (jetson/docker-compose.yml mounts this file)
+# Resulting topics match config/interfaces.yaml (and the sim): /camera/camera/color/image_raw,
+# /camera/camera/aligned_depth_to_color/image_raw (16UC1 mm), .../camera_info.
+#
+# 848x480 @ 15 fps (2026-10-11; was 640x480): the color sensor is natively 16:9 and 640x480 crops its sides off
+# (~56 deg across); 848x480 sees the full ~70 deg at the same height -- the plate's corner / side AprilTags fell off
+# the image edges at 640. Also the depth module's best mode. The detector runs at ~5 Hz anyway; over a network 15 fps
+# of color + depth is ~45 Mbit/s compressed.
+camera_name: camera
+camera_namespace: camera
+# with a second RealSense on the PC (the SO-101's wrist D405, realsense_d405.yaml): open the D435(i) only.
+# (a regular expression on the device name; or serial_no: "_<serial>", rs-enumerate-devices -s)
+device_type: d435
+rgb_camera.color_profile: 848x480x15
+depth_module.depth_profile: 848x480x15
+align_depth.enable: true          # depth re-projected into the color camera: one pixel grid for mask + depth
+enable_sync: true                 # color and depth frames from the same instant
+enable_color: true
+enable_depth: true
+enable_infra1: false
+enable_infra2: false
+enable_gyro: false                # the D435i's IMU isn't used (fixed camera)
+enable_accel: false
+pointcloud.enable: false          # computed where needed (pnp_perception obstacle_cloud_node)
+publish_tf: false                 # OUR launch file publishes base -> camera_link -> optical (calibration), same
+                                  # tree as in the sim; two publishers for the optical frame would conflict
+initial_reset: true               # reset the USB device on start (recovers a camera left in a bad state)

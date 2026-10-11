@@ -1,0 +1,44 @@
+# Hand-eye calibration of the d435i (tools/calibrate.py fixed). camera_tf_node publishes
+# T_parent_optical as fr3_link0 -> camera_color_optical_frame. history: earlier results, newest first.
+camera: d435i
+parent: fr3_link0
+optical_frame: camera_color_optical_frame
+T_parent_optical:
+  xyz: [1.094765, 0.500893, 0.651041]
+  quat_xyzw: [-0.4089138, -0.8113404, 0.375891, 0.1822696]
+date: '2026-10-11T07:17:42'
+method: park+refine
+views: 14
+rotation_span_deg: 65.6
+reprojection_px: 0.169
+residual: {pos_mm_rms: 0.907, rot_deg_rms: 0.3259}
+board: hand_board
+board_found:
+  xyz: [-0.137508, -0.000117, 0.114985]
+  quat_xyzw: [0.7071884, 3.7e-05, 0.0004438, 0.707025]
+samples: data/calibration/d435i_20261009_071628
+sim_truth_error: {pos_mm: 0.243, rot_deg: 0.0}
+sim_profile: realistic
+before: {pos_mm: 9.328, rot_deg: 1.079}
+history:
+- date: '2026-10-11T07:08:24'
+  T_parent_optical:
+    xyz: [1.086224, 0.504716, 0.651361]
+    quat_xyzw: [-0.4097734, -0.8083631, 0.3834267, 0.1778168]
+  method: daniilidis+refine
+  reprojection_px: 0.23
+  sim_truth_error: {pos_mm: 2.278, rot_deg: 0.2024}
+  sim_profile: stress
+- date: '2026-10-11T06:46:59'
+  T_parent_optical:
+    xyz: [1.0947, 0.501324, 0.651149]
+    quat_xyzw: [-0.4086838, -0.8114363, 0.3760442, 0.1820427]
+  method: daniilidis+refine
+  reprojection_px: 0.184
+  sim_truth_error: {pos_mm: 0.308, rot_deg: 0.0}
+  sim_profile: realistic
+apriltag_reference:
+  '0':
+    xyz: [0.770908, -0.015465, -0.017261]
+    quat_xyzw: [-0.9999945, 0.0017308, 0.0024304, 0.0014442]
+apriltag_reference_date: '2026-10-11T07:17:45'

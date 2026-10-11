@@ -1,0 +1,45 @@
+# ros2_control controllers. The SAME controllers run in sim and on the real robot; only the hardware
+# plugin in the URDF changes. MoveIt talks to:
+#   /fr3_arm_controller/follow_joint_trajectory  (control_msgs/FollowJointTrajectory)
+#   /fr3_gripper/gripper_cmd                      (control_msgs/GripperCommand)
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz (Isaac publishes joint states at 120 Hz)
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    fr3_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    fr3_gripper:
+      type: position_controllers/GripperActionController
+
+fr3_arm_controller:
+  ros__parameters:
+    joints: [fr3_joint1, fr3_joint2, fr3_joint3, fr3_joint4, fr3_joint5, fr3_joint6, fr3_joint7]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: false
+    open_loop_control: false
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 1.0
+      # per-joint tolerance at the END of a trajectory (rad)
+      fr3_joint1: {goal: 0.02}
+      fr3_joint2: {goal: 0.02}
+      fr3_joint3: {goal: 0.02}
+      fr3_joint4: {goal: 0.02}
+      fr3_joint5: {goal: 0.02}
+      fr3_joint6: {goal: 0.02}
+      fr3_joint7: {goal: 0.02}
+
+fr3_gripper:
+  ros__parameters:
+    joint: fr3_finger_joint1          # finger_joint2 mimics it
+    goal_tolerance: 0.002
+    # When the fingers close on an object they stop short of the target: that "stall" means
+    # "holding something" and counts as success (the pick logic then checks the finger width).
+    allow_stalling: true
+    # Fingers squeezing an object in the sim jitter at a few mm/s, so 0.001 m/s never counted as "stalled"
+    # (the close never finished). Free closing is far faster than 0.01 m/s, so this can't trigger early.
+    stall_velocity_threshold: 0.01
+    stall_timeout: 0.5

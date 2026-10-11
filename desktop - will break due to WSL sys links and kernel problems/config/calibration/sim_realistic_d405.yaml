@@ -1,0 +1,47 @@
+# Hand-eye calibration of the d405 (tools/calibrate.py wrist). camera_tf_node publishes
+# T_parent_optical as fr3_hand -> wrist_camera_color_optical_frame. history: earlier results, newest first.
+camera: d405
+parent: fr3_hand
+optical_frame: wrist_camera_color_optical_frame
+T_parent_optical:
+  xyz: [0.069339, 0.001456, 0.032763]
+  quat_xyzw: [-0.1509671, -0.1482114, 0.6880793, 0.6941104]
+date: '2026-10-11T07:19:30'
+method: tsai+refine
+views: 14
+rotation_span_deg: 83.5
+reprojection_px: 0.176
+residual: {pos_mm_rms: 0.97, rot_deg_rms: 0.3445}
+board: table_board
+board_found:
+  xyz: [0.41492, -0.010168, 0.000107]
+  quat_xyzw: [0.9999984, 8.66e-05, 0.0016488, 0.0006987]
+samples: data/calibration/d405_20261009_071747
+sim_truth_error: {pos_mm: 0.602, rot_deg: 0.0757}
+sim_profile: realistic
+before: {pos_mm: 4.638, rot_deg: 1.0355}
+history:
+- date: '2026-10-11T07:10:09'
+  T_parent_optical:
+    xyz: [0.069033, 0.004308, 0.029187]
+    quat_xyzw: [-0.1487869, -0.1421426, 0.6852615, 0.6986233]
+  method: daniilidis+refine
+  reprojection_px: 0.18
+  sim_truth_error: {pos_mm: 0.474, rot_deg: 0.0939}
+  sim_profile: stress
+- date: '2026-10-11T06:51:21'
+  T_parent_optical:
+    xyz: [0.069877, 0.001765, 0.032717]
+    quat_xyzw: [-0.1509719, -0.1490341, 0.6878432, 0.6941672]
+  method: tsai+refine
+  reprojection_px: 0.163
+  sim_truth_error: {pos_mm: 0.277, rot_deg: 0.0672}
+  sim_profile: realistic
+- date: '2026-10-11T06:48:44'
+  T_parent_optical:
+    xyz: [0.069877, 0.001765, 0.032717]
+    quat_xyzw: [-0.1509719, -0.1490341, 0.6878432, 0.6941672]
+  method: tsai+refine
+  reprojection_px: 0.163
+  sim_truth_error: {pos_mm: 0.277, rot_deg: 0.0672}
+  sim_profile: realistic

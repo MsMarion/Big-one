@@ -1,0 +1,38 @@
+# The interface contract between sim/real drivers and our nodes. Human-readable version:
+# docs/interfaces.md. Every name here matches what the real drivers publish, so sim and real
+# are interchangeable. min_hz values are checked by tools/system_check.py (0 = not rate-checked).
+ros_domain_id: 42   # must match setup/windows_env.ps1 and setup/ros_env.sh
+# Sim only: Isaac publishes its PERFECT camera images under this prefix (/sim_raw/camera/camera/...);
+# pnp_perception/sensor_model_node.py turns them into the standard topics below, with the noise of
+# config/sim_reality.yaml (profile ideal = passed through unchanged). Real cameras publish the standard topics directly.
+sim_raw_prefix: /sim_raw
+topics:
+  # Images: the Windows->container link downsamples to 15 Hz (setup/zenoh_windows.ps1); 12 = margin.
+  color_image:     {name: /camera/camera/color/image_raw,                    type: sensor_msgs/msg/Image,       min_hz: 12}
+  color_info:      {name: /camera/camera/color/camera_info,                  type: sensor_msgs/msg/CameraInfo,  min_hz: 20}
+  # Real D435i: 16UC1 millimeters. Isaac Sim: 32FC1 meters. Consumers must accept both
+  # (pnp_core.perception_math.depth_to_meters).
+  aligned_depth:   {name: /camera/camera/aligned_depth_to_color/image_raw,   type: sensor_msgs/msg/Image,       min_hz: 12}
+  # Sim: computed in the container from aligned depth (depth_image_proc), not sent from Isaac (bandwidth).
+  points:          {name: /camera/camera/depth/color/points,                 type: sensor_msgs/msg/PointCloud2, min_hz: 0}
+  # /joint_states comes from ros2_control's joint_state_broadcaster (sim AND real), so it needs the
+  # ROS stack running (`stack: true` -> checked by system_check.py --stack).
+  joint_states:    {name: /joint_states,                                     type: sensor_msgs/msg/JointState,  min_hz: 50, stack: true}
+  # Sim only: Isaac's raw joint states / commands, consumed / produced by topic_based_ros2_control.
+  isaac_joint_states:  {name: /isaac_joint_states,                           type: sensor_msgs/msg/JointState,  min_hz: 50, sim_only: true}
+  isaac_joint_command: {name: /isaac_joint_command,                          type: sensor_msgs/msg/JointState,  min_hz: 0, sim_only: true}
+  clock:           {name: /clock,                                            type: rosgraph_msgs/msg/Clock,     min_hz: 50, sim_only: true}
+  detections:      {name: /perception/detections,                            type: vision_msgs/msg/Detection3DArray, min_hz: 0}
+actions:
+  arm:      {name: /fr3_arm_controller/follow_joint_trajectory, type: control_msgs/action/FollowJointTrajectory}
+  # ros2_control GripperActionController names it gripper_cmd (real franka_gripper node: gripper_action)
+  gripper:  {name: /fr3_gripper/gripper_cmd,                    type: control_msgs/action/GripperCommand}
+  pick_place: {name: /pick_place,                               type: pnp_interfaces/action/PickPlace}
+frames:
+  base: fr3_link0
+  tcp: fr3_hand_tcp
+  camera_link: camera_link
+  camera_optical: camera_color_optical_frame
+  # Sim only: ground-truth object pose, published by Isaac as TF fr3_link0 -> <prim name>.
+  object_ground_truth: target
+  goal_ground_truth: goal_marker      # sim only: the green goal marker, also published by Isaac as TF

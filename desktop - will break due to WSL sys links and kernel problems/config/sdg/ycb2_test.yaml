@@ -1,0 +1,5 @@
+# Held-out synthetic TEST set for the 2-class detector: same distribution, different seed, never trained on.
+base: ycb2_v0.yaml
+name: ycb2_test
+seed: 12
+num_frames: 300

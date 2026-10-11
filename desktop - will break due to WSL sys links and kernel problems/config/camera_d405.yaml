@@ -1,0 +1,40 @@
+# Intel RealSense D405 on the WRIST (eye-in-hand), docs/learning/14_wrist_camera.md.
+# Short-range stereo depth (no IR projector), optimal 7-50 cm; color comes from the left depth imager, so depth is
+# aligned to color by construction. FOV ~87 x 58 deg. 640x360 (a native D405 mode) keeps the bandwidth small;
+# intrinsics from that FOV. On the real camera, read the true ones from camera_info.
+name: d405
+# profile: d405 = RGB-D (what FoundationPose needs for the close-look refinement)
+#          rgb  = color only (an ordinary wrist RGB camera): the sim publishes no depth, refinement is skipped
+profile: d405
+width: 640
+height: 360
+fx: 331.0
+fy: 331.0
+cx: 320.0
+cy: 180.0
+depth:
+  min_m: 0.07
+  max_m: 0.5            # beyond this a D405's depth gets noisy quickly; the sim clips at 1 m
+  encoding: 16UC1
+  scale_m: 0.001
+fps: 30
+
+# ROS: realsense2_camera with namespace wrist_camera, camera_name camera (same layout as the D435i's /camera/camera)
+topics:
+  color_image: /wrist_camera/camera/color/image_raw
+  color_info: /wrist_camera/camera/color/camera_info
+  aligned_depth: /wrist_camera/camera/aligned_depth_to_color/image_raw
+frames:
+  link: wrist_camera_link
+  color_optical: wrist_camera_color_optical_frame
+
+# Mount on the hand (frame fr3_hand: z toward the fingertips, y = finger travel, x across the hand).
+# The camera sits beside the hand (+x), behind the fingertips, and tilts INWARD by tilt_deg so its optical axis
+# crosses the tool axis ~17 cm from the flange: at the pre-grasp pose (TCP ~7 cm above the object's top) the
+# object is in the middle of the image, ~13 cm away (inside the D405's 7-50 cm sweet spot). Fingers: image bottom.
+# (pnp_core/wrist.py turns this into transforms; sim, URDF and TF all use it.)
+mount:
+  parent: fr3_hand
+  xyz: [0.07, 0.0, 0.035]
+  tilt_deg: 25.0
+  body_size: [0.023, 0.042, 0.042]     # D405 housing (depth x width x height) for collision/visual, camera_link axes

@@ -1,0 +1,14 @@
+# Where the REAL D435i is, relative to the robot base (fr3_link0). Used by bringup.launch.py when camera:=local
+# or camera:=jetson (the sim uses config/camera_d435i.yaml `mount`).
+#
+# Until hand-eye calibration (Phase 6, easy_handeye2 + ChArUco board): MEASURE it.
+#   position: the camera's front glass center, in meters, from the robot base origin (x forward, y left, z up)
+#   look_at:  a point on the table the camera's optical axis points at
+# Accuracy matters: 1 deg of tilt error = ~1.5 cm position error at 0.9 m. Perception-only work (detections in
+# RViz, recording the real-val set) is fine with a tape-measure mount; grasping needs the hand-eye result.
+source: measured        # measured | handeye
+mount:
+  position: [1.10, 0.50, 0.65]
+  look_at: [0.50, 0.05, 0.0]
+# After hand-eye calibration, replace `mount` by the measured transform base -> camera_color_optical_frame:
+# T_base_optical: {xyz: [x, y, z], quat_xyzw: [qx, qy, qz, qw]}

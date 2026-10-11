@@ -1,0 +1,56 @@
+# Synthetic data generation (SDG) config: what to render and what to randomize.
+# v0 = 20 frames: look at EVERY file before scaling up (docs/learning/03_replicator_sdg.md).
+name: soup_can_v0
+seed: 0
+num_frames: 20
+rt_subframes: 4                 # extra render passes per frame so lighting converges after big changes
+scene: config/scenes/basic.yaml
+
+targets:
+  object: tomato_soup_can       # from config/objects.yaml; its yolo_class becomes the label
+  count: [0, 3]                 # inclusive range per frame; 0 = negative frame (teaches "nothing here")
+  p_zero: 0.1                   # probability of a frame with no can at all
+  region: {x: [0.25, 0.85], y: [-0.45, 0.45]}   # the whole visible table area, not just the pick region
+
+distractors:
+  # unlabeled -> "not a can"; includes other cans (hard negatives)
+  objects: [cracker_box, sugar_box, mustard_bottle, master_chef_can, tuna_fish_can, potted_meat_can,
+            pudding_box, gelatin_box, bleach_cleanser, mug, bowl, banana, wood_block, foam_brick]
+  count: [0, 5]
+  region: {x: [0.25, 0.85], y: [-0.45, 0.45]}
+
+placement:
+  min_gap_m: 0.01               # minimum free space between object footprints
+  max_tries: 50
+
+robot:
+  joint_noise_rad: 0.35         # home pose + uniform noise per arm joint (arm is often in view)
+  gripper_width_m: [0.0, 0.08]
+
+camera:
+  position_jitter_m: 0.03       # around config/camera_d435i.yaml mount (calibration error, remounting)
+  look_at_jitter_m: 0.05
+
+lights:
+  dome_intensity: [80, 500]       # v0 was often washed out at higher values
+  key_intensity: [200, 1500]
+  key_elevation_deg: [20, 80]
+  color_temperature_k: [3000, 6500]
+  extra_spheres: [0, 2]
+  sphere_intensity: [2000, 20000]
+
+table:
+  colors:                        # sampled per frame, then jittered
+    - [0.55, 0.45, 0.35]         # wood
+    - [0.75, 0.75, 0.75]         # light grey laminate
+    - [0.25, 0.25, 0.27]         # dark metal / rubber mat
+    - [0.85, 0.82, 0.70]         # beige
+    - [0.35, 0.45, 0.55]         # blue-grey
+  jitter: 0.08
+
+writer:                          # Replicator BasicWriter annotators
+  rgb: true
+  instance_segmentation: true
+  bounding_box_2d_tight: true
+  distance_to_image_plane: true
+  camera_params: true

@@ -1,0 +1,17 @@
+# Third-party ROS 2 sources not released on apt for Jazzy (or only needed for their config files).
+# Imported into ros2_ws/src/external (gitignored) with:
+#   vcs import /repo/ros2_ws/src/external < /repo/ros2_ws/pnp.repos
+# Pinned to exact versions for reproducibility.
+repositories:
+  topic_based_ros2_control:      # ros2_control hardware plugin: commands/states over topics (Isaac Sim)
+    type: git
+    url: https://github.com/PickNikRobotics/topic_based_ros2_control.git
+    version: aa9f9ef9525a60f8becea322537dd1d6d1bf9123
+  franka_description:            # FR3 URDF/xacro + meshes (same joint/link names as the Isaac USD)
+    type: git
+    url: https://github.com/frankarobotics/franka_description.git
+    version: 2.9.0
+  franka_ros2:                   # used for franka_fr3_moveit_config's SRDF/config; real-robot drivers later
+    type: git
+    url: https://github.com/frankarobotics/franka_ros2.git
+    version: v3.5.3

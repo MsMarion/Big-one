@@ -1,0 +1,27 @@
+# Intel RealSense D435i as used by this project (color stream; depth is aligned to color,
+# so aligned depth shares these intrinsics). Values are typical factory intrinsics for the
+# D435i RGB sensor at 640x480; on the real camera, read the true ones from camera_info.
+name: d435i
+width: 640
+height: 480
+fx: 615.0
+fy: 615.0
+cx: 320.0
+cy: 240.0
+depth:
+  min_m: 0.3            # D435 minimum usable range at this resolution (~0.28 m)
+  max_m: 3.0
+  encoding: 16UC1       # millimeters, what realsense2_camera publishes for aligned depth
+  scale_m: 0.001
+fps: 30
+
+# ROS frames, matching realsense2_camera naming (camera_name:=camera)
+frames:
+  link: camera_link
+  color_optical: camera_color_optical_frame   # z forward, x right, y down (REP-103 optical)
+
+# Eye-to-hand mount: camera on a fixed stand, looking at the workspace.
+# Position in the robot base frame (fr3_link0), and the point it looks at.
+mount:
+  position: [1.10, 0.50, 0.65]
+  look_at: [0.50, 0.05, 0.0]

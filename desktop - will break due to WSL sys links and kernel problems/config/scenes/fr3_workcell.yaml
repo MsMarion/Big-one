@@ -1,0 +1,51 @@
+# FR3 workcell: TWO objects on the table (the soup can + the cracker box), for the workcell page
+# (pnp_manipulation/workcell_node.py, http://localhost:8088; docs/learning/18_workcell_ui.md): scan, pick either one,
+# put it where you click. Same table, camera and calibration as basic.yaml (cell fr3_table).
+name: fr3_workcell
+
+table:
+  center: [0.35, 0.0, -0.025]     # cuboid center; top surface at z = 0
+  size: [1.30, 1.20, 0.05]
+  height_above_floor: 0.75
+
+# `target` = the default object (tools that pick "the" object: benchmark, demo menu); `extra_objects` = more objects
+# on the table, each a rigid body with its own ground-truth TF frame (its name). Any of them can be picked by class.
+target:
+  object: tomato_soup_can
+  spawn_region: {x: [0.40, 0.65], y: [0.05, 0.35]}
+  default_xy: [0.50, 0.25]
+  detector_model: models/ycb2_seg_v1.pt       # 2 classes: soup_can + cracker_box
+extra_objects:
+  - {name: cracker_box, object: cracker_box, default_xy: [0.55, 0.02], yaw: 0.3,
+     spawn_region: {x: [0.40, 0.65], y: [-0.15, 0.30]}}
+
+goal:
+  xy: [0.45, -0.30]               # default place position (the green marker)
+  yaw_deg: 0.0
+  marker_radius_m: 0.05
+  region: {x: [0.35, 0.65], y: [-0.40, 0.35]}
+  min_separation_m: 0.22          # goal center <-> each object (the box is 16 x 7 cm)
+
+obstacles:
+  count: [1, 2]
+  region: {x: [0.25, 0.80], y: [-0.50, 0.50]}
+  clearance_m: 0.17
+  robot_clearance_m: 0.25
+  keep_clear:
+    - {xy: [0.78, 0.0], r_m: 0.07}   # the drift monitor's AprilTag (config/calibration_targets.yaml)
+  padding_m: 0.015
+  mass_kg: 0.4
+  color: [0.25, 0.35, 0.65]
+  pool:
+    - {id: wall,  size: [0.03, 0.26, 0.16], role: between}
+    - {id: block, size: [0.10, 0.10, 0.10]}
+    - {id: tower, size: [0.06, 0.06, 0.24]}
+
+# the workcell page: the arm's reach band drawn on the map [m from the base axis] (FR3: comfortable top-down picks)
+ui:
+  reach_m: [0.30, 0.80]
+
+physics:
+  dt: 0.008333                    # 120 Hz
+  solver_position_iterations: 32
+  friction: {static: 1.0, dynamic: 1.0, restitution: 0.0}

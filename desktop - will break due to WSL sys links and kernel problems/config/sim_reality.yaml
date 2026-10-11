@@ -1,0 +1,68 @@
+# How "real" the simulated sensors are (docs/learning/15_sim_realism.md). Switch live:
+#   python3 /repo/tools/set_reality.py realistic        (or the demo menu key n; test.ps1 / demo.ps1 -Reality)
+# Two kinds of imperfection:
+#   noise      what a real depth camera does to every frame (pnp_perception/sensor_model_node.py, in the container):
+#              Isaac publishes PERFECT images to /sim_raw/..., the sensor model publishes the standard topics
+#   placement  the camera is not exactly where the robot believes it is (calibration error) and may slowly move
+#              (drift): applied in Isaac (sim/sim_services.py), the robot's TF keeps the believed pose -> the
+#              calibration procedure has something real to find, and the sim knows the truth to check it.
+#
+# Depth noise model (stereo cameras): axial sigma = k * z^2 (z in m). k from the stereo geometry:
+#   k = subpixel_error / (focal_px * baseline_m); D435i ~0.08 / (615 * 0.050) = 0.0026 -> 2.6 mm at 1 m
+#   D405 ~0.08 / (331 * 0.018) = 0.013 -> 0.8 mm at 25 cm, 3.4 mm at 50 cm
+# correlated: share of the noise that is smooth over ~patch_px (real stereo noise comes in blobs, not per pixel)
+# holes: fraction of the image lost in random blobs (texture-less / shiny / black surfaces)
+# edge_dropout: probability that a pixel at a depth jump (> edge_jump_m to a neighbor) has no depth
+# flying: probability that a pixel at a depth jump gets a value BETWEEN the two surfaces ("flying pixels")
+# scale_error: systematic depth scale error (real cameras: up to ~1 %, fixed per unit)
+# color_sigma: pixel noise of the color image (0-255 levels)
+active: ideal
+
+profiles:
+  ideal:
+    d435i: {k: 0.0}
+    d405: {k: 0.0}
+  realistic:
+    d435i: {k: 0.0026, correlated: 0.5, patch_px: 16, holes: 0.01, edge_dropout: 0.5, flying: 0.2,
+            edge_jump_m: 0.03, scale_error: 0.003, min_m: 0.28, max_m: 3.0, color_sigma: 2.0}
+    d405: {k: 0.013, correlated: 0.5, patch_px: 16, holes: 0.005, edge_dropout: 0.4, flying: 0.2,
+           edge_jump_m: 0.02, scale_error: -0.002, min_m: 0.07, max_m: 0.6, color_sigma: 2.0}
+    # calibration error: true camera pose = believed pose x this offset (in the camera link frame)
+    fixed_camera_error: {xyz_mm: [4.0, -3.0, 2.0], rpy_deg: [0.3, -0.4, 0.5]}
+    wrist_camera_error: {xyz_mm: [1.5, 1.0, -2.0], rpy_deg: [0.5, 0.3, -0.4]}
+  stress:
+    d435i: {k: 0.0052, correlated: 0.6, patch_px: 24, holes: 0.03, edge_dropout: 0.8, flying: 0.4,
+            edge_jump_m: 0.02, scale_error: 0.008, min_m: 0.28, max_m: 3.0, color_sigma: 5.0}
+    d405: {k: 0.026, correlated: 0.6, patch_px: 24, holes: 0.02, edge_dropout: 0.7, flying: 0.4,
+           edge_jump_m: 0.015, scale_error: -0.006, min_m: 0.07, max_m: 0.6, color_sigma: 5.0}
+    fixed_camera_error: {xyz_mm: [10.0, -8.0, 6.0], rpy_deg: [0.8, -1.0, 1.2]}
+    wrist_camera_error: {xyz_mm: [4.0, 3.0, -5.0], rpy_deg: [1.2, 0.8, -1.0]}
+    # drift: the fixed camera's stand slowly moves (thermal, bumped table): per minute of sim time
+    fixed_camera_drift: {xyz_mm_per_min: [0.5, 0.0, -0.3], rpy_deg_per_min: [0.0, 0.05, 0.05]}
+  # the fixed camera clamped somewhere else than the scene file says (a camera you couldn't hang straight overhead):
+  # tools/calibrate.py locate finds it from the desk targets, then `fixed` refines it
+  misplaced_camera:
+    d435i: {k: 0.0}
+    d405: {k: 0.0}
+    fixed_camera_error: {xyz_mm: [60.0, -40.0, 30.0], rpy_deg: [6.0, -10.0, 8.0]}
+  # the two halves of 'realistic', to study each effect alone
+  noise_only:
+    d435i: {k: 0.0026, correlated: 0.5, patch_px: 16, holes: 0.01, edge_dropout: 0.5, flying: 0.2,
+            edge_jump_m: 0.03, scale_error: 0.003, min_m: 0.28, max_m: 3.0, color_sigma: 2.0}
+    d405: {k: 0.013, correlated: 0.5, patch_px: 16, holes: 0.005, edge_dropout: 0.4, flying: 0.2,
+           edge_jump_m: 0.02, scale_error: -0.002, min_m: 0.07, max_m: 0.6, color_sigma: 2.0}
+  placement_only:
+    d435i: {k: 0.0}
+    d405: {k: 0.0}
+    fixed_camera_error: {xyz_mm: [4.0, -3.0, 2.0], rpy_deg: [0.3, -0.4, 0.5]}
+    wrist_camera_error: {xyz_mm: [1.5, 1.0, -2.0], rpy_deg: [0.5, 0.3, -0.4]}
+  # the sim TWIN of the real plate cell (config/scenes/so101_plate.yaml, docs/learning/25): realistic noise; the TRUE
+  # wrist D405 is the real unit's calibrated mount (the robot starts from the CAD one -> 5.6 mm / 1.9 deg to find);
+  # the fixed camera's believed pose is already the real calibration, the truth a few mm off it (like the real one)
+  twin:
+    d435i: {k: 0.0026, correlated: 0.5, patch_px: 16, holes: 0.01, edge_dropout: 0.5, flying: 0.2,
+            edge_jump_m: 0.03, scale_error: 0.003, min_m: 0.28, max_m: 3.0, color_sigma: 2.0}
+    d405: {k: 0.013, correlated: 0.5, patch_px: 16, holes: 0.005, edge_dropout: 0.4, flying: 0.2,
+           edge_jump_m: 0.02, scale_error: -0.002, min_m: 0.07, max_m: 0.6, color_sigma: 2.0}
+    fixed_camera_error: {xyz_mm: [4.0, -3.0, 2.0], rpy_deg: [0.3, -0.4, 0.5]}
+    wrist_camera_error: {from_calibration: config/calibration/so101_plate/real_d405.yaml}

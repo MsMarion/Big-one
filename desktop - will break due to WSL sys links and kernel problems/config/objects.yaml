@@ -1,0 +1,188 @@
+# Object catalog: everything object-specific lives here; code never hardcodes an object.
+# usd paths are relative to the Isaac assets root.
+#   shape: cylinder | box  -> selects the center-estimation method in pnp_core.perception_math
+#   dims_m: [x, y, z] bounding box of the object standing upright (z = height)
+#   usd_up_axis: the asset's "up" axis. The YCB Axis_Aligned assets are modeled Y-up (checked with
+#                sim/inspect_usd.py: the can's 0.101 m length is along Y), so they are rotated +90 deg
+#                about X to stand upright. Origin is at the bounding-box center.
+#   The *_Physics variants already carry convex-hull collision + mass; we add the rigid body.
+
+tomato_soup_can:
+  yolo_class: soup_can
+  usd: Isaac/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd
+  usd_up_axis: Y
+  shape: cylinder
+  dims_m: [0.0676, 0.0676, 0.1018]
+  mass_kg: 0.35
+  grasp: {type: top_down, depth_below_top_m: 0.03, width_m: 0.0676, force_n: 30.0, symmetric_yaw: true}
+  place_clearance_m: 0.005
+
+# Second target (config/scenes/cracker_box.yaml): a real box, NOT rotationally symmetric -> yaw matters.
+# Asset (sim/inspect_usd.py): 164 x 213.4 x 71.8 mm along mesh x/y/z, Y-up, origin at the center.
+# Upright: 16.4 cm wide (x), 7.18 cm thick (y), 21.3 cm tall. The Franka hand opens 8.0 cm, so the only top-down
+# grasp is across the 7.18 cm thickness with ~4 mm to spare per finger: the yaw must be right to ~1.5 deg
+# (at 3 deg the rotated box is wider than the open hand).
+cracker_box:
+  yolo_class: cracker_box
+  usd: Isaac/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd
+  usd_up_axis: Y
+  shape: box
+  dims_m: [0.164, 0.0718, 0.2134]
+  mass_kg: 0.411
+  # yaw_period_deg 180: a box looks the same turned by 180 deg (geometry; the print differs), so the gripper
+  # may place it either way round. depth: fingertip pads ~4 cm below the top face.
+  grasp: {type: top_down, depth_below_top_m: 0.04, width_m: 0.0718, force_n: 30.0, symmetric_yaw: false,
+          yaw_period_deg: 180, finger_margin_m: 0.002}
+  place_clearance_m: 0.005
+
+# --- LEGO bricks (config/scenes/so101_lego.yaml): built procedurally (sim/scene.py add_brick), no asset needed.
+# LEGO system dimensions: stud pitch 8.0 mm, brick height 9.6 mm, studs 4.8 mm wide x 1.7 mm high, 0.1 mm play
+# per side. dims_m = the bounding box INCLUDING the studs (what the depth camera sees on top). The SO-101 grips
+# across the 15.8 mm side; the TCP sits 2 mm below the stud tops = 9.3 mm above the table, jaw tips ~3 mm above
+# the table (lower, the closing jaw dragged on the desk and stalled at 34 mm). Light (1-2 g): the jaw torque is
+# limited in the sim (robot_so101.yaml sim.gripper_max_force).
+lego_2x4:
+  yolo_class: lego_2x4
+  brick: {studs: [4, 2]}
+  color: [0.80, 0.07, 0.07]          # red
+  shape: box
+  dims_m: [0.0318, 0.0158, 0.0113]
+  mass_kg: 0.0023
+  grasp: {type: top_down, depth_below_top_m: 0.002, width_m: 0.0158, force_n: 5.0, symmetric_yaw: false,
+          yaw_period_deg: 180, finger_margin_m: 0.004,
+          width_tol_m: 0.003}   # the grip check: a real grip reads +-1 mm; 10 mm passed a corner grab
+  place_clearance_m: 0.002
+lego_2x2:
+  yolo_class: lego_2x2
+  brick: {studs: [2, 2]}
+  color: [0.05, 0.25, 0.75]          # blue
+  shape: box
+  dims_m: [0.0158, 0.0158, 0.0113]
+  mass_kg: 0.0012
+  grasp: {type: top_down, depth_below_top_m: 0.002, width_m: 0.0158, force_n: 5.0, symmetric_yaw: false,
+          yaw_period_deg: 90, finger_margin_m: 0.004,
+          width_tol_m: 0.003}   # the grip check: a real grip reads +-1 mm; 10 mm passed a corner grab
+  place_clearance_m: 0.002
+lego_2x3:                            # (the real desk has one; no detector class yet: the wrist map finds it by size)
+  yolo_class: lego_2x3
+  brick: {studs: [3, 2]}
+  color: [0.80, 0.07, 0.07]          # red
+  shape: box
+  dims_m: [0.0238, 0.0158, 0.0113]
+  mass_kg: 0.0017
+  grasp: {type: top_down, depth_below_top_m: 0.002, width_m: 0.0158, force_n: 5.0, symmetric_yaw: false,
+          yaw_period_deg: 180, finger_margin_m: 0.004,
+          width_tol_m: 0.003}   # the grip check: a real grip reads +-1 mm; 10 mm passed a corner grab
+  place_clearance_m: 0.002
+lego_1x2:
+  yolo_class: lego_1x2
+  brick: {studs: [2, 1]}
+  color: [0.95, 0.80, 0.05]          # yellow
+  shape: box
+  dims_m: [0.0158, 0.0078, 0.0113]
+  mass_kg: 0.0007
+  grasp: {type: top_down, depth_below_top_m: 0.002, width_m: 0.0078, force_n: 5.0, symmetric_yaw: false,
+          yaw_period_deg: 180, finger_margin_m: 0.004,
+          width_tol_m: 0.003}   # the grip check: a real grip reads +-1 mm; 10 mm passed a corner grab
+  place_clearance_m: 0.002
+
+# Plain boxes the size of the SO-101 cell's obstacles (config/scenes/so101_lego.yaml pool): synthetic-data hard
+# negatives, so a blue obstacle block is never taken for a blue brick.
+cell_block: {box: true, shape: box, dims_m: [0.03, 0.03, 0.03], color: [0.25, 0.35, 0.65]}
+cell_wall:  {box: true, shape: box, dims_m: [0.012, 0.08, 0.035], color: [0.25, 0.35, 0.65]}
+cell_tower: {box: true, shape: box, dims_m: [0.02, 0.02, 0.07], color: [0.25, 0.35, 0.65]}
+
+# --- distractors: synthetic-data props only (visual, no physics; dims measured from the asset) ---
+# Several are other CANS on purpose: hard negatives that teach 'not every can is our can'.
+# Isaac 5.1 has *_Physics variants only for 003-006, so these use the plain Axis_Aligned set.
+
+sugar_box:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/004_sugar_box.usd
+  usd_up_axis: Y
+  shape: box
+
+mustard_bottle:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/006_mustard_bottle.usd
+  usd_up_axis: Y
+  shape: box
+
+master_chef_can:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/002_master_chef_can.usd
+  usd_up_axis: Y
+  shape: cylinder
+
+tuna_fish_can:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/007_tuna_fish_can.usd
+  usd_up_axis: Y
+  shape: cylinder
+
+potted_meat_can:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/010_potted_meat_can.usd
+  usd_up_axis: Y
+  shape: box
+
+pudding_box:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/008_pudding_box.usd
+  usd_up_axis: Y
+  shape: box
+
+gelatin_box:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/009_gelatin_box.usd
+  usd_up_axis: Y
+  shape: box
+
+bleach_cleanser:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/021_bleach_cleanser.usd
+  usd_up_axis: Y
+  shape: box
+
+mug:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/025_mug.usd
+  usd_up_axis: Y
+  shape: cylinder
+
+bowl:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/024_bowl.usd
+  usd_up_axis: -Y        # modeled upside down (seen in the v0 contact sheet)
+  shape: cylinder
+
+banana:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/011_banana.usd
+  usd_up_axis: Y
+  shape: box
+
+wood_block:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/036_wood_block.usd
+  usd_up_axis: Y
+  shape: box
+
+foam_brick:
+  yolo_class: null
+  sdg_only: true
+  usd: Isaac/Props/YCB/Axis_Aligned/061_foam_brick.usd
+  usd_up_axis: Y
+  shape: box

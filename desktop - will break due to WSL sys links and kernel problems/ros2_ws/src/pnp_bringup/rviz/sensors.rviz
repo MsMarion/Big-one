@@ -1,0 +1,354 @@
+# "Sensor view": every stage of the camera data, from raw pixels to the planner's world model.
+# Loaded by bringup.launch.py sensor_view:=true (demo.ps1 -Sensors). Displays are grouped and numbered in
+# pipeline order; tick groups on/off in the Displays panel to compare stages. Guide: docs/learning/09_sensor_view.md
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /1 Raw camera data1
+        - /2 3D from the camera1
+        - /3 Perception1
+        - /4 Scene model (measured vs true)1
+        - /5 Robot + planning world1
+      Splitter Ratio: 0.55
+    Tree Height: 600
+  - Class: rviz_common/Views
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.4
+      Cell Size: 0.1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid (10 cm cells)
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Camera stand (the D435i's mount)
+      Namespaces:
+        camera_stand: true
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /scene/camera_rig_markers
+      Value: true
+    - Class: rviz_common/Group
+      Name: 1 Raw camera data
+      Enabled: true
+      Displays:
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Name: Color image (what YOLO sees)
+          Normalize Range: true
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /camera/camera/color/image_raw
+          Value: true
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Name: Depth image (dark = near, 0.3-1.6 m)
+          Normalize Range: false
+          Min Value: 0.3
+          Max Value: 1.6
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /camera/camera/aligned_depth_to_color/image_raw
+          Value: true
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Name: Wrist camera D405 (eye-in-hand, close look before grasping)
+          Normalize Range: true
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /wrist_camera/camera/color/image_raw
+          Value: true
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Name: Wrist depth D405 (dark = near, 0.05-0.5 m)
+          Normalize Range: false
+          Min Value: 0.05
+          Max Value: 0.5
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /wrist_camera/camera/aligned_depth_to_color/image_raw
+          Value: true
+        - Class: rviz_default_plugins/CameraInfo
+          Enabled: true
+          Name: Camera field of view (from camera_info)
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /camera/camera/color/camera_info
+          Value: true
+        - Class: rviz_default_plugins/Camera
+          Enabled: true
+          Name: Camera overlay (3D scene drawn over the image)
+          Image Rendering: background and overlay
+          Overlay Alpha: 0.5
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /camera/camera/color/image_raw
+          Visibility:
+            Value: true
+          Zoom Factor: 1
+          Value: true
+        - Class: rviz_default_plugins/TF
+          Enabled: true
+          Name: Frames (base, camera, tool, sim ground truth)
+          Marker Scale: 0.25
+          Show Arrows: false
+          Show Axes: true
+          Show Names: true
+          Frames:
+            All Enabled: false
+            fr3_link0:
+              Value: true
+            camera_link:
+              Value: true
+            camera_color_optical_frame:
+              Value: true
+            wrist_camera_color_optical_frame:
+              Value: true
+            fr3_hand_tcp:
+              Value: true
+            target:
+              Value: true
+            goal_marker:
+              Value: true
+          Value: true
+    - Class: rviz_common/Group
+      Name: 2 3D from the camera
+      Enabled: true
+      Displays:
+        - Class: rviz_default_plugins/PointCloud2
+          Color Transformer: RGB8
+          Enabled: true
+          Name: Colored point cloud (depth + color + intrinsics)
+          Position Transformer: XYZ
+          Size (Pixels): 2
+          Style: Points
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /camera/camera/depth/color/points
+          Use Fixed Frame: true
+          Value: true
+        - Class: rviz_default_plugins/PointCloud2
+          Color: 255; 170; 0
+          Color Transformer: FlatColor
+          Enabled: false
+          Name: Object points (on the table, robot + objects removed)
+          Position Transformer: XYZ
+          Size (m): 0.006
+          Style: Spheres
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /perception/object_points
+          Use Fixed Frame: true
+          Value: false
+        - Class: rviz_default_plugins/PointCloud2
+          Axis: Z
+          Autocompute Value Bounds: true
+          Color Transformer: AxisColor
+          Enabled: true
+          Name: Obstacle cloud MoveIt keeps (2 cm, columns)
+          Position Transformer: XYZ
+          Size (m): 0.02
+          Style: Boxes
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /perception/obstacle_cloud_filtered
+          Use Fixed Frame: true
+          Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Map changes while frozen (red = appeared, blue = gone, amber = newly seen)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /perception/map_change_markers
+          Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Target cut-out (orange = what the map ignores around the focus object)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /perception/cutout_markers
+          Value: true
+        - Class: rviz_default_plugins/PointCloud2
+          Color: 255; 40; 40
+          Color Transformer: FlatColor
+          Enabled: true
+          Name: Points removed by the cut-out (red = never reach MoveIt)
+          Position Transformer: XYZ
+          Size (m): 0.005
+          Style: Spheres
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /perception/cutout_points
+          Use Fixed Frame: true
+          Value: true
+    - Class: rviz_common/Group
+      Name: 3 Perception
+      Enabled: true
+      Displays:
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Object detections (YOLO-seg + depth)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /perception/markers
+          Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: 6-D pose (FoundationPose - object model + axes, orange = held while hidden)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /perception/object_pose_marker
+          Value: true
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Name: Detector debug image (masks, accept/reject)
+          Normalize Range: true
+          Topic:
+            Depth: 2
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /perception/debug_image
+          Value: true
+    - Class: rviz_common/Group
+      Name: 4 Scene model (measured vs true)
+      Enabled: true
+      Displays:
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Measured boxes (blue) vs sim truth (white wireframe)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /scene/model_markers
+          Value: true
+    - Class: rviz_common/Group
+      Name: 5 Robot + planning world
+      Enabled: true
+      Displays:
+        - Class: moveit_rviz_plugin/PlanningScene
+          Enabled: true
+          Move Group Namespace: ""
+          Name: Planning scene (robot, table, Octomap voxels)
+          Planning Scene Topic: /monitored_planning_scene
+          Robot Description: robot_description
+          Scene Geometry:
+            Scene Alpha: 0.6
+            Scene Color: 50; 230; 50
+            Scene Display Time: 0.01
+            Show Scene Geometry: true
+            Voxel Coloring: Z-Axis
+            Voxel Rendering: Occupied Voxels
+          Scene Robot:
+            Attached Body Color: 150; 50; 150
+            Robot Alpha: 1
+            Show Robot Collision: false
+            Show Robot Visual: true
+          Value: true
+        - Class: moveit_rviz_plugin/Trajectory
+          Enabled: true
+          Name: Planned motion
+          Robot Alpha: 0.4
+          Robot Color: 150; 50; 150
+          Robot Description: robot_description
+          Show Robot Visual: true
+          Loop Animation: true
+          Show Trail: true
+          Trail Step Size: 4
+          State Display Time: 0.05 s
+          Trajectory Topic: /display_planned_path
+          Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 40; 40; 44
+    Fixed Frame: fr3_link0
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 255; 255; 0
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 2.2
+      Focal Point:
+        X: 0.45
+        Y: 0.0
+        Z: 0.05
+      Name: Current View
+      Near Clip Distance: 0.01
+      Pitch: 0.75
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz)
+      Yaw: 0.6        # looking from roughly where the camera stands
+    Saved: ~
+Window Geometry:
+  Height: 1043
+  Width: 1848
+  X: 72
+  Y: 40

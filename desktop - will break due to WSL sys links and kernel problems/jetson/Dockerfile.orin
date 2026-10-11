@@ -1,0 +1,15 @@
+# Camera container for a Jetson ORIN Nano / Orin NX / AGX Orin (JetPack 6.x = L4T r36, Ubuntu 22.04, arm64).
+# ROS 2 Humble is the native distro on 22.04; the PC runs Jazzy - that's fine: only standard message types
+# (sensor_msgs/Image, CompressedImage, CameraInfo) cross, and they are wire-compatible between the two.
+#
+# Build on the Jetson:  cd ~/pnp/jetson && docker compose build
+FROM ros:humble-ros-base
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ros-humble-realsense2-camera ros-humble-image-transport-plugins usbutils \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV ROS_DOMAIN_ID=42
+COPY jetson/camera.launch.py /jetson/camera.launch.py
+CMD ["bash", "-c", "source /opt/ros/humble/setup.bash && ros2 launch /jetson/camera.launch.py"]

@@ -1,0 +1,26 @@
+# The vision system's stages and which backends run in each (pnp_core/vision.py, docs/learning/24_vision_plan.md).
+# A profile = an ordered list per stage. identity: the FIRST backend that recognises a proposal wins; the others are
+# compared and disagreements noted. pose: the first that gives a pose.
+profile: geometry
+
+profiles:
+  # what works on the real cell today: no training, no domain gap; color-blind, sizes must differ
+  geometry:
+    proposals: [{name: depth_blobs}]
+    identity: [{name: catalog_size}]
+    pose: [{name: box_geometry}]
+
+  # + the trained detector (sim-trained lego_seg_v1 finds nothing on real frames yet: lego_seg_v2 after real data)
+  detector:
+    proposals: [{name: depth_blobs}, {name: yolo_seg, model_path: models/lego_seg_v1.pt, conf: 0.25}]
+    identity: [{name: yolo_class}, {name: catalog_size}]
+    pose: [{name: box_geometry}]
+
+  # depth names the brick (mm), DINO checks the kind (brick / can / box ...) and vetoes look-alikes (flat prints)
+  fusion:
+    proposals: [{name: depth_blobs}]
+    identity: [{name: kind_fusion, reject_sim: 0.6,
+                dino: {library: models/vision/templates_mixed_v1.npz, model_dir: models/vision/dinov2-small}}]
+    pose: [{name: box_geometry}]
+
+  # planned (same interfaces): sam2 / owlv2 proposals, foundationpose pose
