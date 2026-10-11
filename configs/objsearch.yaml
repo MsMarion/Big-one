@@ -1,0 +1,51 @@
+# objsearch: RGB-D object -> identity -> 3D model -> Blender -> USD (runs on this PC, not the box).
+# Keys live in .env (GEMINI_API_KEY, ANTHROPIC_API_KEY, SKETCHFAB_TOKEN, GOOGLE_CLOUD_VISION_KEY).
+
+data_dir: objsearch_data          # relative to repo root; env OBJSEARCH_DATA overrides
+provider: gemini                  # gemini | anthropic | fake
+search_mode: auto                 # auto: Google grounding, falling back to DuckDuckGo | grounded | duckduckgo
+
+models:                           # free model names change often: `python -m objsearch models check`
+  gemini:
+    agent: gemini-3.8-flash       # vision + function calling (free tier OK)
+    search: gemini-3.8-flash      # Google Search grounding: paid-tier projects only (5,000/month included).
+                                  # (2.5 models had free grounding but are closed to new users since 2026.)
+    lite: gemini-3.5-flash-lite
+    embed: gemini-embedding-2
+    detector: gemini-robotics-er-2-preview
+  anthropic:
+    agent: claude-opus-5-5
+
+# Estimated USD per 1M tokens [input, output]; free tier = 0. Used for cost_usd_est only.
+prices:
+  gemini-3.8-flash: [0, 0]
+  gemini-3.5-flash-lite: [0, 0]
+  claude-opus-5-5: [4.0, 20.0]
+  fake: [0, 0]
+
+quota:                            # enforced locally; real limits are shown per project in AI Studio
+  grounded_search_per_day: 150     # paid tier: 5,000/month included -> ~160/day
+  vision_web_detection_per_day: 30
+  requests_per_day:
+    gemini-3.8-flash: 1000
+
+budget:                           # per object, per agent phase
+  max_llm_calls: 20
+  max_tool_calls: 40
+  max_searches: 8
+
+acquire:
+  auto: true                      # source + build a 3D model right after identification (env OBJSEARCH_AUTO_ACQUIRE=0 to disable)
+docs:
+  auto: true                      # then grab the datasheet + mass/materials/friction -> physics in sim.usda (env OBJSEARCH_AUTO_DOCS=0)
+
+gripper:                          # SO-ARM101 (objsearch/grasp.py); semi-accurate, so generous margins
+  max_open_mm: 55                 # ESTIMATE: measure your printed jaws fully open (tip to tip) and set this
+  clearance_mm: 8                 # opening must exceed the object by this much for an imprecise approach
+  min_width_mm: 10                # ~1 cm across the jaws, so small position errors don't miss it
+  min_height_mm: 10               # >= 1 cm tall, so fingertips get purchase above the table
+  tolerance_mm: 3                 # within this of a limit = "borderline" instead of "no"
+
+photos:
+  max_side: 1024
+  thumb_side: 320

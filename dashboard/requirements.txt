@@ -1,3 +1,5 @@
 fastapi
 uvicorn
 paramiko
+python-multipart
+-r ../objsearch/requirements.txt

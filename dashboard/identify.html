@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identify from photo</title>
+<link rel="stylesheet" href="/objects-static/objects.css">
+<script src="/objects-static/objects.js"></script>
+<style>
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 10px; }
+.shots figure { margin: 0; position: relative; }
+.shots img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+.shots button { position: absolute; top: 4px; right: 4px; }
+.act { display: grid; gap: 4px; font-size: 13px; }
+.act div { display: flex; gap: 8px; align-items: baseline; }
+.act code { font-size: 12px; overflow-wrap: anywhere; }
+.steps { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; margin-bottom: 8px; }
+.steps span { display: inline-flex; gap: 6px; align-items: center; }
+.result { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; align-items: start; }
+.result img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: #fff; border-radius: 8px; display: block; }
+.conf { height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; margin: 6px 0; }
+.conf > i { display: block; height: 100%; }
+@media (max-width: 900px) { .result { grid-template-columns: 1fr 1fr; } .result > :last-child { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="card" id="status"></section>
+  <section id="msg"></section>
+  <section class="card">
+    <h2>Photos of ONE object (1–6 angles: top, bottom, markings close-up)</h2>
+    <label class="drop" id="drop" style="display:block">Drop photos here or click to choose
+      <input type="file" id="file" accept="image/*,.heic" multiple hidden></label>
+    <div class="row" style="margin-top:8px">
+      <label class="btn" style="cursor:pointer">📷 Take photo<input type="file" id="cam" accept="image/*" capture="environment" hidden></label>
+      <span class="muted" style="font-size:12px">(camera button works when this page is opened on a phone)</span>
+    </div>
+    <div class="shots" id="shots"></div>
+    <div class="form" style="margin-top:12px">
+      <label for="hint">What you know</label><input id="hint" placeholder="optional, e.g. 'blue board, came with the robot kit, says ESP-01'">
+      <label>Size (mm)</label>
+      <div class="dims"><input id="dL" type="number" step="0.1" min="0" placeholder="L" aria-label="length mm">
+        <input id="dW" type="number" step="0.1" min="0" placeholder="W" aria-label="width mm">
+        <input id="dH" type="number" step="0.1" min="0" placeholder="H" aria-label="height mm">
+        <span class="muted" style="font-size:12px;align-self:center">optional, a ruler reading helps a lot</span></div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:10px">
+      <button class="primary" id="go" disabled>Identify</button>
+    </div>
+  </section>
+  <section class="card" id="live" hidden></section>
+  <section class="card"><h2>Recent identifications</h2><div class="scroll" id="recent"></div></section>
+</main>
+<script>
+navHeader("identify");
+let files = [], runId = new URLSearchParams(location.search).get("run"), timer = null, status = null, extraPolls = 0;
+
+async function loadStatus() {
+  status = await api("/api/identify/status");
+  fill($("#status"), el("div", {class: "row", style: "justify-content:space-between"},
+    el("div", {},
+      el("h2", {style: "margin:0 0 4px", text: "Identify from photo"}),
+      el("div", {class: "secondary", style: "font-size:13px"}, status.ready
+        ? `Research agent: ${status.provider} / ${status.model} (Google Search via ${status.search_model}). Checks your catalog first, then the web.`
+        : "Keyless mode: LEGO parts are identified with Brickognize. For everything else add a free Gemini key (below).")),
+    el("div", {class: "row"}, el("span", {class: "tag " + (status.ready ? "good" : "warn"), text: status.mode}),
+      status.ready ? el("button", {class: "small", id: "testKey", text: "Test key", onclick: testKey}) : null)),
+    el("div", {id: "keyResult"}),
+    status.ready ? null : el("div", {class: "notice", style: "margin-top:10px"},
+      "Get a free key at ", el("a", {href: "https://aistudio.google.com/apikey", target: "_blank", rel: "noopener noreferrer", text: "aistudio.google.com/apikey"}),
+      " (no billing), then put ", el("code", {text: "GEMINI_API_KEY=..."}), " in the ", el("code", {text: ".env"}),
+      " file in the project folder and restart the dashboard. Free-tier note: Google may use uploaded photos to improve its products."));
+}
+
+async function testKey() {
+  $("#testKey").disabled = true; $("#testKey").textContent = "Testing…";
+  try {
+    const r = await api("/api/identify/check", {method: "POST"});
+    fill($("#keyResult"), el("div", {class: "notice" + (r.ok ? "" : " err"), style: "margin-top:10px",
+      text: r.ok ? `Key works: ${r.message}` : r.message}));
+  } catch (e) { notice($("#msg"), e.message); }
+  finally { $("#testKey").disabled = false; $("#testKey").textContent = "Test key"; }
+}
+
+function addFiles(list) {
+  for (const f of list) if (files.length < 6) files.push(f);
+  if (list.length && files.length >= 6) notice($("#msg"), "Up to 6 photos per object.", false);
+  renderShots();
+}
+
+function renderShots() {
+  fill($("#shots"), ...files.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return el("figure", {}, el("img", {src: url, alt: f.name, onload: () => URL.revokeObjectURL(url),
+      onerror: e => { e.target.replaceWith(el("div", {class: "empty", style: "aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--grid);border-radius:8px", text: f.name})); }}),
+      el("button", {class: "small", text: "✕", title: "Remove", onclick: () => { files.splice(i, 1); renderShots(); }}));
+  }));
+  $("#go").disabled = !files.length;
+}
+
+async function start() {
+  const fd = new FormData();
+  files.forEach(f => fd.append("files", f));
+  fd.append("hint", $("#hint").value.trim());
+  const dims = ["#dL", "#dW", "#dH"].map(s => $(s).value.trim());
+  if (dims.every(Boolean)) fd.append("dims", dims.join(" "));
+  $("#go").disabled = true; $("#go").textContent = "Uploading…";
+  try {
+    const r = await api("/api/identify", {method: "POST", body: fd});
+    runId = r.run_id; extraPolls = 0;
+    history.replaceState(null, "", `?run=${encodeURIComponent(runId)}`);
+    files = []; renderShots(); $("#hint").value = ""; ["#dL", "#dW", "#dH"].forEach(s => $(s).value = "");
+    poll();
+  } catch (e) { notice($("#msg"), e.message); }
+  finally { $("#go").textContent = "Identify"; $("#go").disabled = !files.length; }
+}
+
+const ICON = {catalog_lookup: "📚", web_search: "🔍", web_fetch: "📖", brickognize_identify: "🧱", ldraw_get: "🧱", submit_result: "✅"};
+function argText(t) {
+  const a = t.args || {};
+  return a.query || a.url || a.text || a.part || a.image || a.name || JSON.stringify(a);
+}
+
+async function poll() {
+  clearTimeout(timer);
+  if (!runId) return;
+  let v;
+  try { v = await api(`/api/identify/${encodeURIComponent(runId)}`); } catch (e) { notice($("#msg"), e.message); return; }
+  renderLive(v);
+  // keep polling while identifying, and then while the 3D model is being sourced/built (it starts right after)
+  const modelPending = v.result && v.result.object_id && (!v.model || v.model.state !== "ready") && extraPolls++ < 300;
+  if (v.status === "running" || modelPending) timer = setTimeout(poll, 1000);
+  else loadRecent();
+}
+
+function renderLive(v) {
+  const box = $("#live");
+  box.hidden = false;
+  const res = v.result, o = v.object;
+  const steps = el("div", {class: "steps"}, v.steps.map(s => el("span", {}, el("span", {class: "dot s-" + s.status}),
+    `${s.stage}${s.ms != null ? " · " + fmtMs(s.ms) : ""}`)),
+    v.status === "running" ? el("span", {class: "muted", text: "working…"}) : null);
+  const act = el("div", {class: "act"}, v.activity.length ? v.activity.map(t => el("div", {},
+    el("span", {text: ICON[t.tool] || "•"}), el("b", {text: t.tool}), el("code", {text: argText(t)}),
+    t.is_error ? el("span", {class: "tag crit", text: "error"}) : null))
+    : el("div", {class: "muted", text: v.status === "running" ? "Looking at the photos…" : "No tool calls (answered from the photo and catalog)."}));
+  let resultEl = null;
+  if (res) {
+    const pct = Math.round((res.confidence || 0) * 100);
+    const col = pct >= 75 ? "var(--good)" : pct >= 45 ? "var(--warning)" : "var(--critical)";
+    const ev = (res.evidence_urls || []).map(u => safeUrl(u)).filter(Boolean);
+    const decided = v.sighting === "confirmed" || v.sighting === "rejected";
+    resultEl = res.object_id ? el("div", {class: "result", style: "margin-top:14px"},
+      el("div", {}, el("div", {class: "muted", style: "font-size:12px", text: "your photo"}),
+        el("img", {src: dataUrl(v.photos[0]), alt: "uploaded photo"})),
+      el("div", {}, el("div", {class: "muted", style: "font-size:12px", text: o && o.ref_path ? "catalog reference" : "no reference image yet"}),
+        o && (o.ref_path || o.photo_path) ? el("img", {src: dataUrl(o.ref_path || o.photo_path), alt: "reference"}) : el("div", {class: "empty", text: "—"})),
+      el("div", {},
+        el("div", {class: "tags"}, el("span", {class: "tag " + (res.match === "catalog" ? "good" : "acc"),
+          text: res.match === "catalog" ? "matched your catalog" : "new item (researched)"}),
+          v.sighting === "confirmed" ? el("span", {class: "tag good", text: "confirmed"}) : null,
+          v.sighting === "rejected" ? el("span", {class: "tag crit", text: "marked wrong"}) : null),
+        el("h2", {class: "big", style: "font-size:20px;color:var(--text-primary);margin:8px 0 2px"},
+          el("a", {href: `/objects/${encodeURIComponent(res.object_id)}`, text: res.name})),
+        o && o.dims_mm ? el("div", {class: "secondary", style: "font-size:13px", text: fmtDims(o.dims_mm)}) : null,
+        el("div", {class: "conf"}, el("i", {style: `width:${pct}%;background:${col}`})),
+        el("div", {class: "muted", style: "font-size:12px", text: `confidence ${pct}%`}),
+        res.reasoning ? el("p", {style: "font-size:13px", text: res.reasoning}) : null,
+        ev.length ? el("div", {class: "credit"}, "Sources checked: ", ...ev.slice(0, 5).flatMap((u, i) => [i ? " · " : "",
+          el("a", {href: u, target: "_blank", rel: "noopener noreferrer", text: new URL(u).hostname})])) : null,
+        (res.unverified_urls || []).length ? el("div", {class: "credit", title: "The model cited these without opening them this run",
+          text: `Unverified links from model memory: ${res.unverified_urls.map(u => { try { return new URL(u).hostname; } catch { return u; } }).join(", ")}`}) : null,
+        decided ? null : el("div", {class: "row", style: "margin-top:12px"},
+          el("button", {class: "primary", text: "✓ Correct, I own it", onclick: () => confirmRun(true, true)}),
+          el("button", {text: "✓ Correct (not mine)", onclick: () => confirmRun(true, false)}),
+          el("button", {class: "danger", text: "✗ Wrong", onclick: () => wrong()})),
+        el("div", {id: "wrongBox"})))
+      : el("div", {class: "notice err", style: "margin-top:12px"},
+          `Couldn't identify it. ${res.stop_reason || ""}`.trim(),
+          el("div", {class: "row", style: "margin-top:8px"},
+            el("input", {id: "wname", placeholder: "Tell me what it is (adds it to your collection)", style: "flex:1"}),
+            v.sighting === "rejected" || v.sighting === "confirmed" ? null :
+              el("button", {text: "Save", onclick: () => confirmRun(false, true, $("#wname").value.trim())})));
+  }
+  const m = v.model;
+  const STEP_TEXT = {source_known: "using the known source", source_kicad: "checking the KiCad library",
+    source_open_lib: "checking open CAD libraries", source_agent: "researching the web", source_placeholder: "making a placeholder",
+    download: "downloading", kicad_import: "importing the board", kicad_models: "placing 3D parts", kicad_export: "exporting",
+    convert: "converting", normalize: "Blender: scaling + USD export", register: "saving"};
+  const modelEl = !res || !res.object_id ? null : el("div", {class: "card", style: "margin-top:12px;background:var(--surface-0)"},
+    el("h2", {text: "3D model"}),
+    !m || m.state === "none" ? el("div", {class: "muted", text: v.status === "running" ? "Starts after identification…" : "Looking for a model…"}) :
+    m.state === "building" ? el("div", {class: "row"}, el("span", {class: "dot s-running"}),
+      el("span", {text: `Building: ${STEP_TEXT[m.step] || m.step || "starting"}…`})) :
+    el("div", {class: "row", style: "align-items:flex-start"},
+      m.thumb ? el("a", {href: `/objects/${encodeURIComponent(res.object_id)}`}, el("img", {src: dataUrl(m.thumb), alt: "3D model",
+        style: "width:260px;border-radius:8px;background:#fff"})) : null,
+      el("div", {style: "flex:1;min-width:200px"},
+        el("div", {class: "tags"}, el("span", {class: "tag good", text: "model ready"}),
+          m.how ? el("span", {class: "tag", text: `via ${m.how}`}) : null),
+        m.state === "upgrading" ? el("div", {class: "row", style: "margin-top:6px"}, el("span", {class: "dot s-running"}),
+          el("span", {class: "muted", text: `Placeholder shown; ${STEP_TEXT[m.step] || "researching"} for the real model…`})) : null,
+        m.license ? el("div", {class: "credit", style: "margin-top:6px", text: `license: ${m.license}`}) : null,
+        m.flags.length ? el("div", {class: "notice", style: "margin-top:6px", text: m.flags.join(" · ")}) : null,
+        el("div", {style: "margin-top:6px"}, el("a", {href: `/objects/${encodeURIComponent(res.object_id)}`, text: "open in 3D viewer →"})))));
+  fill(box, el("div", {class: "row", style: "justify-content:space-between"},
+      el("h2", {style: "margin:0", text: v.status === "running" ? "Identifying…" : "Result"}),
+      el("a", {href: `/objects/runs/${encodeURIComponent(v.run_id)}`, class: "muted", style: "font-size:12px", text: "full run log →"})),
+    steps, el("h2", {text: "Agent activity", style: "margin-top:8px"}), act, resultEl, modelEl);
+}
+
+function wrong() {
+  fill($("#wrongBox"), el("div", {class: "row", style: "margin-top:10px"},
+    el("input", {id: "wname", placeholder: "What is it actually? (optional)", style: "flex:1"}),
+    el("label", {class: "muted", style: "font-size:13px"}, el("input", {type: "checkbox", id: "wown", checked: true}), " I own it"),
+    el("button", {text: "Save", onclick: () => confirmRun(false, $("#wown").checked, $("#wname").value.trim())})));
+}
+
+async function confirmRun(correct, owned, name) {
+  try {
+    const r = await api(`/api/identify/${encodeURIComponent(runId)}/confirm`, {method: "POST", json: {correct, owned, name: name || null}});
+    renderLive(r.view);
+    notice($("#msg"), r.action === "confirmed" ? (owned ? "Saved to your collection, with your photos." : "Confirmed.")
+      : r.action === "corrected" ? "Saved under the name you gave." : "Marked as wrong.", false);
+    loadRecent();
+  } catch (e) { notice($("#msg"), e.message); }
+}
+
+async function loadRecent() {
+  const d = await api("/api/identify?limit=15");
+  fill($("#recent"), d.runs.length ? el("table", {}, el("tbody", {}, d.runs.map(r => el("tr", {class: "click",
+      onclick: () => { runId = r.run_id; history.replaceState(null, "", `?run=${encodeURIComponent(runId)}`); poll(); scrollTo(0, 0); }},
+    el("td", {style: "width:64px"}, r.photos[0] ? el("img", {src: dataUrl(r.photos[0]), style: "width:56px;height:42px;object-fit:cover;border-radius:4px"}) : ""),
+    el("td", {}, r.result && r.result.name ? r.result.name : el("span", {class: "muted", text: r.status === "running" ? "running…" : "not identified"})),
+    el("td", {text: r.result && r.result.confidence ? `${Math.round(r.result.confidence * 100)}%` : ""}),
+    el("td", {}, r.sighting === "confirmed" ? el("span", {class: "tag good", text: "confirmed"}) :
+      r.sighting === "rejected" ? el("span", {class: "tag crit", text: "wrong"}) :
+      r.result && r.result.object_id ? el("span", {class: "tag warn", text: "needs your answer"}) : ""),
+    el("td", {class: "muted", text: fmtTime(r.started_at)})))))
+    : el("div", {class: "empty", text: "Nothing yet. Drop a photo above."}));
+}
+
+const drop = $("#drop");
+$("#file").addEventListener("change", e => { addFiles([...e.target.files]); e.target.value = ""; });
+$("#cam").addEventListener("change", e => { addFiles([...e.target.files]); e.target.value = ""; });
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); addFiles([...e.dataTransfer.files]); });
+document.addEventListener("paste", e => { const imgs = [...e.clipboardData.files].filter(f => f.type.startsWith("image/")); if (imgs.length) addFiles(imgs); });
+$("#go").onclick = start;
+loadStatus().catch(e => notice($("#msg"), e.message));
+loadRecent().catch(() => {});
+if (runId) poll();
+</script>
+</body>
+</html>

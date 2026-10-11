@@ -6,6 +6,12 @@
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "uvicorn", "dashboard.app:app", "--host", "127.0.0.1", "--port", "8765"],
       "port": 8765
+    },
+    {
+      "name": "dashboard-alt",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "dashboard.app:app", "--host", "127.0.0.1", "--port", "8766"],
+      "port": 8766
     }
   ]
 }

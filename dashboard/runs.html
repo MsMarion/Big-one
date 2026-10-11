@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runs</title>
+<link rel="stylesheet" href="/objects-static/objects.css">
+<script src="/objects-static/objects.js"></script>
+</head>
+<body>
+<main>
+  <section class="tiles" id="quota"></section>
+  <section id="msg"></section>
+  <div class="two" style="grid-template-columns:minmax(0,.9fr) minmax(0,1.4fr)">
+    <div style="display:grid;gap:16px">
+      <section class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <h2 style="margin:0">Runs</h2>
+          <div class="row">
+            <select id="failAt" aria-label="Demo failure mode">
+              <option value="">no failure</option><option value="identify">fail identify</option>
+              <option value="acquire">fail mid-acquire</option><option value="convert">fail convert tool</option>
+            </select>
+            <button id="demoBtn" title="Fake end-to-end run: FakeLLM, canned tools, no keys">Run fake demo</button>
+          </div>
+        </div>
+        <div class="scroll" id="runs"></div>
+      </section>
+      <section class="card"><h2>Activity</h2><div class="scroll" id="activity"></div></section>
+      <section class="card"><h2>Steps by stage (all runs)</h2><div class="scroll" id="stages"></div></section>
+    </div>
+    <div style="display:grid;gap:16px">
+      <section class="card" id="detail"><div class="empty">Select a run.</div></section>
+      <section class="card" id="inspector" hidden></section>
+    </div>
+  </div>
+</main>
+<script>
+navHeader("runs");
+let current = decodeURIComponent(location.pathname.split("/runs/")[1] || "") || null, R = null, selStep = null, timer = null;
+
+function gauge(label, used, limit, sub) {
+  const pct = limit ? Math.min(100, used / limit * 100) : 0;
+  return el("div", {class: "card tile"}, el("div", {class: "v", text: limit ? `${used} / ${limit}` : String(used)}),
+    el("div", {class: "s", text: label + (sub ? " · " + sub : "")}),
+    limit ? el("div", {class: "meter"}, el("i", {class: pct > 90 ? "crit" : pct > 70 ? "warn" : "", style: `width:${pct}%`})) : null);
+}
+
+async function loadSide() {
+  try {
+    const [q, runs, act, use] = await Promise.all([api("/api/quota"), api("/api/runs"), api("/api/activity?limit=30"), api("/api/usage")]);
+    fill($("#quota"), 
+      gauge("grounded searches today", q.grounded_search.used, q.grounded_search.limit, "free tier, gemini-2.5-flash"),
+      ...q.requests.map(r => gauge(`${r.model} requests today`, r.used, r.limit, r.provider)),
+      gauge("Vision web detection this month", q.vision_web_detection_month.used, q.vision_web_detection_month.limit));
+    fill($("#runs"), runs.runs.length ? el("table", {}, el("thead", {}, el("tr", {},
+      ["", "started", "kind", "steps", "sightings", "tokens", "cost"].map(h => el("th", {text: h})))),
+      el("tbody", {}, runs.runs.map(r => el("tr", {class: "click" + (r.id === current ? " sel" : ""), onclick: () => select(r.id)},
+        el("td", {}, el("span", {class: "dot s-" + r.status, title: r.status})),
+        el("td", {text: fmtTime(r.started_at)}), el("td", {text: r.kind + (r.provider ? " · " + r.provider : "")}),
+        el("td", {}, `${r.n_steps}`, r.n_failed ? el("span", {class: "tag crit", style: "margin-left:4px", text: `${r.n_failed} failed`}) : null),
+        el("td", {text: r.n_sightings}), el("td", {text: `${r.tokens_in + r.tokens_out}`}),
+        el("td", {text: r.cost_usd_est ? "$" + r.cost_usd_est.toFixed(4) : "$0"})))))
+      : el("div", {class: "empty", text: "No runs yet. Try “Run fake demo”."}));
+    fill($("#activity"), el("table", {}, el("tbody", {}, [
+      ...act.failed_steps.slice(0, 8).map(s => el("tr", {class: "click", onclick: () => select(s.run_id, s.id)},
+        el("td", {text: fmtTime(s.started_at)}), el("td", {}, el("span", {class: "tag crit", text: s.stage + " failed"})),
+        el("td", {class: "muted", text: `${s.error_type}: ${s.error_msg}`}))),
+      ...act.events.slice(0, 20).map(e => el("tr", {},
+        el("td", {text: fmtTime(e.created_at)}), el("td", {}, el("span", {class: "tag", text: e.actor})),
+        el("td", {}, el("a", {href: `/objects/${encodeURIComponent(e.object_id)}`, text: e.object_name || e.object_id}),
+          el("span", {class: "muted", text: ` ${e.field}${e.new != null && typeof e.new !== "object" ? " → " + e.new : ""}`}))))])));
+    fill($("#stages"), el("table", {}, el("thead", {}, el("tr", {}, ["stage", "steps", "failed", "skipped", "avg"].map(h => el("th", {text: h})))),
+      el("tbody", {}, use.by_stage.map(s => el("tr", {}, el("td", {text: s.stage}), el("td", {text: s.n}),
+        el("td", {}, s.failed ? el("span", {class: "tag crit", text: s.failed}) : "0"), el("td", {text: s.skipped}), el("td", {text: fmtMs(s.avg_ms)}))))));
+  } catch (e) { notice($("#msg"), e.message); }
+}
+
+function depthOf(steps) {
+  const byId = Object.fromEntries(steps.map(s => [s.id, s])), d = {};
+  for (const s of steps) { let n = 0, p = s.parent_step_id; while (p && byId[p]) { n++; p = byId[p].parent_step_id; } d[s.id] = n; }
+  return d;
+}
+
+function renderRun(r) {
+  R = r;
+  const t0 = Date.parse(r.started_at), t1 = Date.parse(r.ended_at || new Date().toISOString());
+  const span = Math.max(1, t1 - t0), depth = depthOf(r.steps);
+  const llmBy = {}, toolBy = {};
+  r.llm_calls.forEach(c => (llmBy[c.step_id] ||= []).push(c));
+  r.tool_calls.forEach(c => (toolBy[c.step_id] ||= []).push(c));
+  const color = {ok: "var(--good)", failed: "var(--critical)", running: "var(--series-1)", skipped: "var(--skipped)"};
+  const rows = r.steps.map(s => {
+    const a = Date.parse(s.started_at) - t0, b = (s.ended_at ? Date.parse(s.ended_at) : t1) - t0;
+    const extra = [llmBy[s.id] && `${llmBy[s.id].length} llm`, toolBy[s.id] && `${toolBy[s.id].length} tools`].filter(Boolean).join(", ");
+    return el("div", {class: "wfrow" + (selStep === s.id ? " sel" : ""), onclick: () => inspect(s.id),
+                      title: `${s.stage} · ${s.status}${s.object_id ? " · " + s.object_id : ""}${extra ? " · " + extra : ""}`},
+      el("div", {class: "wflabel", style: `padding-left:${depth[s.id] * 14}px`}, el("span", {class: "dot s-" + s.status}),
+        el("span", {text: s.stage}), s.object_id ? el("span", {class: "muted", text: s.object_id}) : null),
+      el("div", {class: "wftrack"}, el("div", {class: "wfbar", style:
+        `left:${a / span * 100}%;width:${Math.max(0.4, (b - a) / span * 100)}%;background:${color[s.status]}`})),
+      el("div", {class: "wfms", text: fmtMs(s.duration_ms)}));
+  });
+  const ver = r.versions && Object.keys(r.versions).length ? Object.entries(r.versions).map(([k, v]) => `${k} ${v}`).join(", ") : "—";
+  fill($("#detail"), 
+    el("div", {class: "row", style: "justify-content:space-between"},
+      el("h2", {style: "margin:0"}, el("span", {class: "dot s-" + r.status}), ` Run ${r.id}`),
+      el("div", {class: "row"}, r.log_path ? el("button", {class: "small", text: "Log", onclick: showLog}) : null)),
+    el("dl", {class: "kv", style: "margin:10px 0"},
+      el("dt", {text: "status"}), el("dd", {text: `${r.status} · ${r.kind}${r.notes ? " · " + r.notes : ""}`}),
+      el("dt", {text: "time"}), el("dd", {text: `${fmtTime(r.started_at)} · ${fmtMs(r.ended_at ? span : null) || "running"}`}),
+      el("dt", {text: "provider"}), el("dd", {text: `${r.provider || "—"} / ${r.model || "—"}`}),
+      el("dt", {text: "tokens / cost"}), el("dd", {text: `${r.tokens_in} in · ${r.tokens_out} out · $${(r.cost_usd_est || 0).toFixed(4)}`}),
+      el("dt", {text: "frame"}), el("dd", {text: r.frame_dir || "—"}),
+      el("dt", {text: "code"}), el("dd", {text: `${r.git_sha || "?"} · config ${r.config_hash || "?"} · ${ver}`})),
+    r.sightings.length ? el("div", {class: "strip", style: "margin-bottom:12px"}, r.sightings.map(s => el("figure", {},
+      s.crop_path ? el("img", {src: dataUrl(s.crop_path), alt: "crop"}) : null,
+      el("figcaption", {}, s.object_id ? el("a", {href: `/objects/${encodeURIComponent(s.object_id)}`, text: s.object_name || s.object_id})
+        : el("span", {class: "tag warn", text: "unknown"}),
+        el("span", {text: `${s.match_method || ""} ${s.score != null ? (+s.score).toFixed(2) : ""}`}))))) : null,
+    el("h2", {text: "Steps"}),
+    el("div", {class: "wf"}, rows.length ? rows : el("div", {class: "empty", text: "No steps."})));
+  if (selStep) inspect(selStep, true);
+}
+
+function jsonPre(v) { return el("pre", {text: JSON.stringify(v, null, 2)}); }
+
+async function inspect(id, keep) {
+  selStep = id;
+  const s = R.steps.find(x => x.id === id);
+  if (!s) return;
+  if (!keep) document.querySelectorAll(".wfrow").forEach((n, i) => n.classList.toggle("sel", R.steps[i].id === id));
+  const llm = R.llm_calls.filter(c => c.step_id === id), tools = R.tool_calls.filter(c => c.step_id === id);
+  const http = R.http_requests.filter(c => c.step_id === id);
+  const box = $("#inspector");
+  box.hidden = false;
+  const tr = s.outputs && s.outputs.transcript;
+  fill(box, 
+    el("div", {class: "row", style: "justify-content:space-between"},
+      el("h2", {style: "margin:0"}, el("span", {class: "dot s-" + s.status}), ` ${s.stage} #${s.id}`),
+      el("div", {class: "row"},
+        tr ? el("button", {class: "small", text: "Transcript", onclick: () => showText(tr, "Transcript")}) : null,
+        s.traceback_path ? el("button", {class: "small danger", text: "Traceback", onclick: () => showText(s.traceback_path, "Traceback")}) : null)),
+    el("dl", {class: "kv", style: "margin:8px 0"},
+      el("dt", {text: "status"}), el("dd", {text: `${s.status} · ${fmtMs(s.duration_ms)}`}),
+      s.object_id ? el("dt", {text: "object"}) : null,
+      s.object_id ? el("dd", {}, el("a", {href: `/objects/${encodeURIComponent(s.object_id)}`, text: s.object_id})) : null,
+      s.error_type ? el("dt", {text: "error"}) : null, s.error_type ? el("dd", {class: "tag crit", text: `${s.error_type}: ${s.error_msg}`}) : null),
+    el("h2", {text: "Inputs"}), jsonPre(s.inputs || {}), el("h2", {text: "Outputs", style: "margin-top:10px"}), jsonPre(s.outputs || {}),
+    llm.length ? el("h2", {text: `LLM calls (${llm.length})`, style: "margin-top:10px"}) : null,
+    llm.length ? el("div", {class: "scroll"}, el("table", {}, el("thead", {}, el("tr", {}, ["model", "stop", "in", "out", "ms", "$"].map(h => el("th", {text: h})))),
+      el("tbody", {}, llm.map(c => el("tr", {}, el("td", {text: `${c.provider}/${c.model}`}), el("td", {text: c.stop_reason || ""}),
+        el("td", {text: c.tokens_in}), el("td", {text: c.tokens_out}), el("td", {text: c.latency_ms}), el("td", {text: (c.cost_usd_est || 0).toFixed(4)})))))) : null,
+    tools.length ? el("h2", {text: `Tool calls (${tools.length})`, style: "margin-top:10px"}) : null,
+    tools.length ? el("div", {class: "scroll"}, el("table", {}, el("thead", {}, el("tr", {}, ["tool", "args", "result", "ms"].map(h => el("th", {text: h})))),
+      el("tbody", {}, tools.map(c => el("tr", {}, el("td", {}, c.is_error ? el("span", {class: "tag crit", text: c.tool}) : c.tool),
+        el("td", {}, el("code", {text: JSON.stringify(c.args)})), el("td", {class: "muted", text: c.result_summary || ""}),
+        el("td", {text: c.latency_ms})))))) : null,
+    http.length ? el("h2", {text: `HTTP (${http.length})`, style: "margin-top:10px"}) : null,
+    http.length ? el("div", {class: "scroll"}, el("table", {}, el("tbody", {}, http.map(h => el("tr", {},
+      el("td", {text: h.method}), el("td", {text: h.status}), el("td", {style: "overflow-wrap:anywhere", text: h.url}),
+      el("td", {text: h.bytes != null ? `${h.bytes} B` : ""}), el("td", {text: `${h.latency_ms} ms`})))))) : null,
+    el("div", {id: "textView"}));
+}
+
+async function showText(path, title) {
+  try {
+    const t = await api(`/api/text?path=${encodeURIComponent(path)}`);
+    let body = t;
+    if (path.endsWith(".jsonl")) body = t.split("\n").filter(Boolean).map(l => { try { return JSON.stringify(JSON.parse(l), null, 2); } catch { return l; } }).join("\n\n");
+    fill($("#textView"), el("h2", {text: title, style: "margin-top:10px"}), el("pre", {style: "max-height:520px", text: body}));
+  } catch (e) { notice($("#msg"), e.message); }
+}
+
+async function showLog() {
+  try {
+    const t = await api(`/api/runs/${encodeURIComponent(R.id)}/log`);
+    const lines = t.split("\n").filter(Boolean).map(l => { try { const j = JSON.parse(l);
+      return `${j.ts.slice(11, 23)} ${j.level.padEnd(7)} [${j.stage || "run"}${j.step_id ? "#" + j.step_id : ""}] ${j.msg}`; } catch { return l; } });
+    $("#inspector").hidden = false;
+    fill($("#inspector"), el("h2", {text: "Run log (run.log.jsonl)"}), el("pre", {style: "max-height:520px", text: lines.join("\n")}));
+  } catch (e) { notice($("#msg"), e.message); }
+}
+
+async function select(id, stepId) {
+  current = id; selStep = stepId || null;
+  history.replaceState(null, "", `/objects/runs/${encodeURIComponent(id)}`);
+  document.querySelectorAll("#runs tr.click").forEach(tr => tr.classList.remove("sel"));
+  await refresh();
+  if (stepId) inspect(stepId);
+}
+
+async function refresh() {
+  clearTimeout(timer);
+  if (current) {
+    try {
+      const r = await api(`/api/runs/${encodeURIComponent(current)}`);
+      // re-render only on change, so an open transcript/traceback/log view survives the periodic refresh
+      const sig = x => JSON.stringify([x.id, x.status, x.steps.map(s => s.status), x.llm_calls.length, x.sightings.length]);
+      if (!R || sig(R) !== sig(r)) renderRun(r);
+    }
+    catch (e) { fill($("#detail"), el("div", {class: "empty", text: e.message})); }
+  }
+  await loadSide();
+  const running = R && R.status === "running";
+  timer = setTimeout(refresh, running ? 1200 : 8000);
+}
+
+$("#demoBtn").onclick = async () => {
+  $("#demoBtn").disabled = true;
+  try {
+    await api("/api/runs/demo", {method: "POST", json: {fail_at: $("#failAt").value || null}});
+    setTimeout(async () => { const r = await api("/api/runs?limit=1"); if (r.runs[0]) select(r.runs[0].id); }, 700);
+  } catch (e) { notice($("#msg"), e.message); }
+  finally { setTimeout(() => $("#demoBtn").disabled = false, 1500); }
+};
+refresh();
+</script>
+</body>
+</html>

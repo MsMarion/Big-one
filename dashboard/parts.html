@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parts library</title>
+<link rel="stylesheet" href="/objects-static/objects.css">
+<script src="/objects-static/objects.js"></script>
+</head>
+<body>
+<main>
+  <section class="card">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h2 style="margin:0;font-size:15px;color:var(--text-primary)">3D parts library</h2>
+        <div class="secondary" style="font-size:13px;max-width:780px">Components that board models are built from.
+          Every build uses real parts from here first, then KiCad's library; anything still missing gets an
+          approximate box (flagged on the object) and lands on this list. Give a part a real STEP and the
+          models that used the approximation are rebuilt.</div>
+      </div>
+      <div class="row"><span id="counts"></span>
+        <button id="rebuildAll" title="Rebuild every object that uses library parts">Rebuild affected models</button></div>
+    </div>
+    <div id="indexNote"></div>
+  </section>
+  <section id="msg"></section>
+  <section class="card"><div class="scroll" id="list"></div></section>
+  <section class="card" id="job" hidden></section>
+</main>
+<script>
+navHeader("parts");
+const STATUS = {real: "good", approximate: "warn", missing: "crit", unmapped: "crit"};
+let busyTimer = null;
+
+function short(key) { return key.replace(/^eagle:/, "board part ").split("/").pop(); }
+
+function addForm(p) {
+  const id = "f" + Math.random().toString(36).slice(2);
+  return el("details", {}, el("summary", {style: "cursor:pointer;font-size:12px", text: p.status === "real" ? "Replace STEP" : "Add real STEP"}),
+    el("form", {class: "form", id, style: "margin-top:6px;min-width:320px", onsubmit: e => submitReal(e, p.key, id)},
+      el("label", {text: "STEP file"}), el("input", {type: "file", name: "file", accept: ".step,.stp"}),
+      el("label", {text: "or link"}), el("input", {name: "url", placeholder: "https://…/part.step"}),
+      el("label", {text: "License"}), el("input", {name: "license", required: true, placeholder: "e.g. CC-BY-4.0, manufacturer terms"}),
+      el("label", {text: "Found at"}), el("input", {name: "source_url", placeholder: "page it came from"}),
+      el("label", {}, ""), el("label", {}, el("input", {type: "checkbox", name: "rebuild", checked: true}), " rebuild models that use it"),
+      el("div", {class: "row", style: "grid-column:1/-1;justify-content:flex-end"},
+        el("span", {class: "credit", text: p.footprint ? `auto-aligned to ${p.footprint}` : "no footprint on record: added as-is"}),
+        el("button", {class: "primary small", type: "submit", text: "Add"}))));
+}
+
+async function submitReal(e, key, id) {
+  e.preventDefault();
+  const f = document.getElementById(id), fd = new FormData();
+  fd.append("key", key);
+  if (f.file.files[0]) fd.append("file", f.file.files[0]); else fd.append("url", f.url.value.trim());
+  fd.append("license", f.license.value.trim());
+  fd.append("source_url", f.source_url.value.trim());
+  fd.append("rebuild", f.rebuild.checked ? "true" : "false");
+  try { const r = await api("/api/parts/real", {method: "POST", body: fd}); watch(r.run_id); }
+  catch (err) { notice($("#msg"), err.message); }
+}
+
+async function findCandidates(p, btn) {
+  const box = btn.parentElement.querySelector(".cands");
+  btn.disabled = true; btn.textContent = "Searching…";
+  try {
+    const {candidates} = await api(`/api/parts/candidates?key=${encodeURIComponent(p.key)}`);
+    fill(box, candidates.length ? candidates.map(c => el("div", {style: "margin-top:6px;font-size:12px"},
+      el("a", {href: safeUrl(c.page), target: "_blank", rel: "noopener noreferrer", text: c.path.split("/").pop()}),
+      el("span", {class: "credit", text: ` · ${c.library} · ${c.license}`}), " ",
+      el("button", {class: "small", text: "Use", title: "Download, auto-align to the footprint, rebuild models",
+        onclick: () => useCandidate(p.key, c)})))
+      : [el("div", {class: "credit", style: "margin-top:6px", text: "No candidates in the open libraries; upload a STEP from the maker's site."})]);
+  } catch (e) { notice($("#msg"), e.message); }
+  finally { btn.disabled = false; btn.textContent = "Search open libraries"; }
+}
+
+async function useCandidate(key, c) {
+  if (!confirm(`Use ${c.path.split("/").pop()} (${c.license}) for this part and rebuild the models that use it?`)) return;
+  const fd = new FormData();
+  fd.append("key", key); fd.append("url", c.url); fd.append("license", c.license); fd.append("source_url", c.page);
+  fd.append("rebuild", "true");
+  try { const r = await api("/api/parts/real", {method: "POST", body: fd}); watch(r.run_id); }
+  catch (e) { notice($("#msg"), e.message); }
+}
+
+async function watch(runId) {
+  const box = $("#job"); box.hidden = false;
+  for (;;) {
+    const r = await api(`/api/runs/${encodeURIComponent(runId)}`);
+    fill(box, el("div", {class: "row", style: "justify-content:space-between"},
+        el("h2", {style: "margin:0", text: r.status === "running" ? "Working…" : `Done (${r.status})`}),
+        el("a", {href: `/objects/runs/${encodeURIComponent(runId)}`, class: "muted", style: "font-size:12px", text: "run log →"})),
+      el("div", {style: "display:flex;gap:10px;flex-wrap:wrap;font-size:13px;margin-top:8px"},
+        r.steps.filter(s => !s.parent_step_id).map(s => el("span", {}, el("span", {class: "dot s-" + s.status}), ` ${s.stage}${s.object_id ? " · " + s.object_id : ""}`))));
+    if (r.status !== "running") break;
+    await new Promise(res => setTimeout(res, 1500));
+  }
+  load();
+}
+
+async function load() {
+  let d;
+  try { d = await api("/api/parts"); } catch (e) { notice($("#msg"), e.message); return; }
+  fill($("#counts"), ...Object.entries(d.counts).filter(([, n]) => n).map(([s, n]) =>
+    el("span", {class: "tag " + STATUS[s], style: "margin-right:4px", text: `${n} ${s}`})));
+  fill($("#indexNote"), d.index_ready ? null : el("div", {class: "notice", style: "margin-top:8px",
+    text: "Tip: build the KiCad footprint index once (python -m objsearch parts index, ~2 min) so unknown board parts can be auto-matched to KiCad footprints."}));
+  fill($("#list"), d.parts.length ? el("table", {}, el("thead", {}, el("tr", {}, ["status", "part", "used by", "source / license", "notes", ""].map(h => el("th", {text: h})))),
+    el("tbody", {}, d.parts.map(p => el("tr", {},
+      el("td", {}, el("span", {class: "tag " + STATUS[p.status], text: p.status})),
+      el("td", {}, el("div", {text: short(p.key)}), el("div", {class: "credit", text: p.key}),
+        p.dims_mm ? el("div", {class: "credit", text: fmtDims(p.dims_mm)}) : null),
+      el("td", {}, (p.used_by || []).map(o => el("div", {}, el("a", {href: `/objects/${encodeURIComponent(o.id)}`, text: o.name})))),
+      el("td", {style: "max-width:260px"}, p.source_url && safeUrl(p.source_url) ? el("a", {href: safeUrl(p.source_url), target: "_blank", rel: "noopener noreferrer", text: new URL(safeUrl(p.source_url)).hostname}) : "",
+        p.license ? el("div", {class: "credit", text: p.license}) : null),
+      el("td", {class: "credit", style: "max-width:320px;white-space:normal", text: p.notes || ""}),
+      el("td", {}, p.kind === "kicad_model" || p.status !== "real" ? addForm(p) : null,
+        p.status !== "real" ? el("button", {class: "small", style: "margin-top:6px", text: "Search open libraries",
+          onclick: e => findCandidates(p, e.target)}) : null,
+        el("div", {class: "cands"}))))))
+    : el("div", {class: "empty", text: "Empty. Board models record their parts here as they're built."}));
+}
+
+$("#rebuildAll").onclick = async () => {
+  if (!confirm("Rebuild every object model that uses library parts?")) return;
+  try { const r = await api("/api/parts/rebuild", {method: "POST", json: {}}); watch(r.run_id); }
+  catch (e) { notice($("#msg"), e.message); }
+};
+load();
+</script>
+</body>
+</html>

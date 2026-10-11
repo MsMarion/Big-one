@@ -7,3 +7,9 @@ __pycache__/
 *.safetensors
 .venv/
 __pycache__/
+# objsearch (local object DB, downloaded/normalized assets, offline libraries, bpy venv, keys)
+/objsearch_data/
+/third_party/
+.venv-bpy/
+.env
+.pytest_cache/

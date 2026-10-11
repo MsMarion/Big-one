@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check my collection</title>
+<link rel="stylesheet" href="/objects-static/objects.css">
+<script src="/objects-static/objects.js"></script>
+</head>
+<body>
+<main>
+  <section class="card">
+    <div class="row" style="justify-content:space-between">
+      <div><h2 style="margin:0;font-size:15px;color:var(--text-primary)">Check my collection</h2>
+        <div class="muted" id="count" style="font-size:13px"></div></div>
+      <div class="row">
+        <label class="muted" style="font-size:13px"><input type="checkbox" id="all"> include already-checked</label>
+        <label class="muted" style="font-size:13px" title="Items too flat, thin or wide for the SO-ARM101 gripper"><input type="checkbox" id="nogrip"> include items the gripper can't pick</label>
+        <select id="cat" aria-label="Category"><option value="">all categories</option></select>
+      </div>
+    </div>
+    <div class="progress" style="margin-top:10px"><i id="bar" style="width:0"></i></div>
+  </section>
+  <section id="msg"></section>
+  <section class="card" id="stage"><div class="empty">Loading…</div></section>
+  <div class="muted" style="font-size:12px">Keys: <kbd>Y</kbd> have it · <kbd>N</kbd> don't have it · <kbd>S</kbd> skip ·
+    <kbd>B</kbd> back · <kbd>←</kbd>/<kbd>→</kbd> other pictures</div>
+</main>
+<script>
+navHeader("objects");
+let list = [], i = 0, cur = null, pic = 0, answered = 0, busy = false;
+
+async function loadList() {
+  const p = new URLSearchParams();
+  if (!$("#all").checked) p.set("flag", "unchecked");
+  if ($("#cat").value) p.set("category", $("#cat").value);
+  if (!$("#nogrip").checked) p.set("grip", "ok");
+  const d = await api("/api/objects?" + p);
+  list = d.objects.filter(o => !o.id.startsWith("demo-"));
+  if ($("#cat").options.length === 1)
+    d.summary.categories.forEach(c => $("#cat").append(el("option", {value: c.category, text: `${c.category} (${c.n})`})));
+  const total = d.summary.all, unchecked = d.summary.unchecked;
+  $("#count").textContent = `${total - unchecked} of ${total} checked · ${d.summary.owned} owned`;
+  $("#bar").style.width = `${total ? (total - unchecked) / total * 100 : 0}%`;
+  i = 0;
+  show();
+}
+
+function images(o) {
+  const own = o.photos.filter(p => p.source === "user").map(p => ({path: p.path, own: true}));
+  return [...own, ...o.ref_images.map(r => ({path: r.path, ref: r}))];
+}
+
+async function show() {
+  if (i >= list.length) {
+    fill($("#stage"), el("div", {style: "text-align:center;padding:30px"},
+      el("h2", {class: "big", text: list.length ? "All done here 🎉" : "Nothing left to check"}),
+      el("p", {class: "muted", text: answered ? `You answered ${answered} item(s) this session.` : "Tick “include already-checked” to go through everything again."}),
+      el("div", {class: "row", style: "justify-content:center"},
+        el("a", {class: "btn", href: "/objects?flag=owned", text: "See what you own"}),
+        el("a", {class: "btn", href: "/objects", text: "All objects"}))));
+    return;
+  }
+  try { cur = await api(`/api/objects/${encodeURIComponent(list[i].id)}`); } catch (e) { notice($("#msg"), e.message); return; }
+  pic = 0;
+  render();
+}
+
+function render() {
+  const o = cur, imgs = images(o), im = imgs[pic];
+  const facts = [["size", fmtDims(o.dims_mm)], ["category", o.category], ["maker", o.manufacturer], ["part no.", o.mpn],
+                 ["LDraw", o.ldraw_id], ["also called", (o.aliases || []).join(", ")], ["colors", (o.colors || []).join(", ")],
+                 ["notes", o.notes]].filter(([, v]) => v);
+  const g = o.grasp || {};
+  const status = o.collection_checked_at ? (o.owned ? "you said: have it" : "you said: don't have it") : null;
+  fill($("#stage"), el("div", {class: "check"},
+    el("div", {},
+      im ? el("img", {class: "hero", src: dataUrl(im.path), alt: o.name}) : el("div", {class: "hero empty",
+        style: "display:flex;align-items:center;justify-content:center", text: "No picture yet"}),
+      im && im.ref ? credit(im.ref) : im && im.own ? el("div", {class: "credit", text: "your photo"}) : null,
+      imgs.length > 1 ? el("div", {class: "thumbs"}, imgs.map((x, k) => el("img", {src: thumbUrl(x.path), class: k === pic ? "on" : null,
+        alt: "", onclick: () => { pic = k; render(); }}))) : null),
+    el("div", {},
+      el("div", {class: "muted", style: "font-size:12px", text: `${i + 1} / ${list.length}`}),
+      el("h2", {class: "big", text: o.name}),
+      el("div", {class: "tags"}, gripTag(o),
+        status ? el("span", {class: "tag " + (o.owned ? "good" : ""), text: status}) : null),
+      g.reasons && g.reasons.length ? el("div", {class: "credit", style: "margin-top:4px", text: g.reasons.join(" · ")}) : null,
+      el("dl", {class: "kv", style: "margin:12px 0"}, facts.flatMap(([k, v]) => [el("dt", {text: k}), el("dd", {text: v})])),
+      el("div", {class: "answer"},
+        el("button", {class: "yes", text: "✓ I have it", onclick: () => answer(true)}),
+        el("button", {text: "✗ Don't have it", onclick: () => answer(false)})),
+      el("div", {class: "row", style: "margin-top:10px;justify-content:space-between"},
+        el("button", {text: "← Back", disabled: i === 0, onclick: back}),
+        el("a", {href: `/objects/${encodeURIComponent(o.id)}`, text: "open item / add your photo"}),
+        el("button", {text: "Skip →", onclick: () => { i++; show(); }})))));
+}
+
+async function answer(have) {
+  if (busy || !cur) return;
+  busy = true;
+  try {
+    await api(`/api/objects/${encodeURIComponent(cur.id)}/check`, {method: "POST", json: {have}});
+    answered++;
+    i++;
+    const d = await api("/api/objects?flag=unchecked");  // refresh the counter without reshuffling the list
+    const total = d.summary.all, done = total - d.summary.unchecked;
+    $("#count").textContent = `${done} of ${total} checked · ${d.summary.owned} owned`;
+    $("#bar").style.width = `${total ? done / total * 100 : 0}%`;
+    await show();
+  } catch (e) { notice($("#msg"), e.message); }
+  finally { busy = false; }
+}
+
+function back() { if (i > 0) { i--; show(); } }
+
+document.addEventListener("keydown", e => {
+  if ((e.target instanceof Element && e.target.matches("input, select, textarea")) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "y") answer(true);
+  else if (k === "n") answer(false);
+  else if (k === "s") { i++; show(); }
+  else if (k === "b") back();
+  else if (cur && (k === "arrowright" || k === "arrowleft")) {
+    const n = images(cur).length;
+    if (n) { pic = (pic + (k === "arrowright" ? 1 : n - 1)) % n; render(); }
+  }
+});
+$("#all").onchange = loadList;
+$("#cat").onchange = loadList;
+$("#nogrip").onchange = loadList;
+loadList().catch(e => notice($("#msg"), e.message));
+</script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Object</title>
+<link rel="stylesheet" href="/objects-static/objects.css">
+<script src="/objects-static/objects.js"></script>
+</head>
+<body>
+<main>
+  <section class="card">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div class="row"><a href="/objects" class="muted">← Objects</a></div>
+        <h2 id="title" style="font-size:20px;color:var(--text-primary);margin:6px 0 4px"></h2>
+        <div class="tags" id="tags"></div>
+      </div>
+      <div class="row" id="actions"></div>
+    </div>
+  </section>
+  <section id="msg"></section>
+  <div class="two">
+    <div style="display:grid;gap:16px">
+      <section class="card"><h2>Photos</h2><div class="strip" id="photos"></div>
+        <label class="drop" id="drop" style="display:block;margin-top:10px">Drop photos here or click to upload
+          (top, bottom, markings close-up)<input type="file" id="file" accept="image/*" multiple hidden></label>
+      </section>
+      <section class="card"><h2>Reference images (public, openly licensed)</h2>
+        <div class="refgrid" id="refs"></div>
+        <form id="refForm" class="row" style="margin-top:10px">
+          <input id="refQ" placeholder="search text, e.g. ESP-01 blue module" style="flex:1" aria-label="Reference image search">
+          <button type="submit" id="refBtn">Find more images</button>
+        </form>
+        <div class="credit" style="margin-top:6px">From Openverse (Flickr, Wikimedia Commons…). Shown with creator + license as the licenses require.</div>
+      </section>
+      <section class="card" id="modelCard"><h2>3D model</h2><div id="model"></div>
+        <details id="addModel" style="margin-top:10px"><summary style="cursor:pointer">Add a 3D model (file or link)</summary>
+          <form id="modelForm" class="form" style="margin-top:8px">
+            <label for="mFile">File</label><input id="mFile" type="file" accept=".step,.stp,.glb,.gltf,.obj,.stl,.ply,.fbx">
+            <label for="mUrl">or direct link</label><input id="mUrl" placeholder="https://…/model.step (a direct file link)">
+            <label for="mLic">License</label><input id="mLic" placeholder="e.g. CC-BY-4.0 (as stated where you got it)">
+            <label for="mSrc">Found at</label><input id="mSrc" placeholder="page the model came from (for credit)">
+            <div class="row" style="grid-column:1/-1;justify-content:space-between">
+              <span class="credit">STEP/STP, GLB/glTF, OBJ, STL, PLY, FBX · converted, scaled to the catalog size, exported to USD in Blender</span>
+              <button type="submit" class="primary" id="mGo">Add model</button></div>
+          </form>
+          <div id="mStatus"></div>
+        </details>
+      </section>
+      <section class="card"><h2>Size: datasheet vs observed</h2><div id="dims"></div></section>
+      <section class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Physical &amp; simulation</h2>
+        <button class="small" id="docsBtn">Research datasheet</button></div><div id="phys" style="margin-top:8px"></div></section>
+      <section class="card"><h2>Sightings in runs</h2><div class="strip" id="sightings"></div></section>
+    </div>
+    <div style="display:grid;gap:16px">
+      <section class="card"><h2>Details</h2>
+        <form id="edit" class="form">
+          <label for="e_name">Name</label><input id="e_name" required>
+          <label for="e_category">Category</label>
+          <select id="e_category"><option>module</option><option>board</option><option>sensor</option>
+            <option>actuator</option><option>camera</option><option>storage</option><option>lego</option>
+            <option>power</option><option>prototyping</option><option>other</option></select>
+          <label for="e_manufacturer">Manufacturer</label><input id="e_manufacturer">
+          <label for="e_mpn">MPN</label><input id="e_mpn">
+          <label for="e_ldraw_id">LDraw id</label><input id="e_ldraw_id">
+          <label for="e_fcc_id">FCC ID</label><input id="e_fcc_id">
+          <label for="e_kicad_model">KiCad model</label><input id="e_kicad_model">
+          <label>Size (mm)</label>
+          <div class="dims"><input id="e_l" type="number" step="0.1" min="0" aria-label="length mm">
+            <input id="e_w" type="number" step="0.1" min="0" aria-label="width mm">
+            <input id="e_h" type="number" step="0.1" min="0" aria-label="height mm"></div>
+          <label for="e_grasp_pose">Sits as</label>
+          <div class="row"><select id="e_grasp_pose" aria-label="How it rests for grasping">
+              <option value="">listed (L × W × H)</option><option value="flat">lying flat (on largest face)</option></select>
+            <span id="gripInfo"></span></div>
+          <label for="e_aliases">Aliases</label><input id="e_aliases" placeholder="comma separated">
+          <label for="e_colors">Colors</label><input id="e_colors" placeholder="comma separated">
+          <label for="e_notes">Notes</label><textarea id="e_notes"></textarea>
+          <label>Collection</label>
+          <div class="row"><label><input type="checkbox" id="e_owned"> I own this</label>
+            <label><input type="checkbox" id="e_include_in_search"> use in matching</label></div>
+          <div class="row" style="grid-column:1/-1;justify-content:flex-end">
+            <span class="muted" id="saved"></span><button type="submit" class="primary">Save</button></div>
+        </form>
+      </section>
+      <section class="card"><h2>Candidate models</h2><div id="candidates"></div></section>
+      <section class="card"><h2>Files</h2><div id="assets"></div></section>
+      <section class="card"><h2>Evidence</h2><div id="evidence"></div></section>
+      <section class="card"><h2>History</h2><div class="scroll" id="events"></div></section>
+    </div>
+  </div>
+</main>
+<script>
+navHeader("objects");
+const oid = decodeURIComponent(location.pathname.split("/").pop());
+const base = `/api/objects/${encodeURIComponent(oid)}`;
+let O = null, viewerLoaded = false;
+
+function table(head, rows) {
+  if (!rows.length) return el("div", {class: "empty", text: "None yet."});
+  return el("div", {class: "scroll"}, el("table", {}, el("thead", {}, el("tr", {}, head.map(h => el("th", {text: h})))),
+    el("tbody", {}, rows.map(r => el("tr", {}, r.map(c => el("td", {}, c)))))));
+}
+
+function link(u, text) {
+  const s = safeUrl(u);
+  return s ? el("a", {href: s, target: "_blank", rel: "noopener noreferrer", text: text || u}) : el("span", {text: u});
+}
+
+function stats(vals) {
+  const m = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const sd = Math.sqrt(vals.reduce((a, b) => a + (b - m) ** 2, 0) / vals.length);
+  return [m, sd];
+}
+
+function render(o) {
+  O = o;
+  document.title = o.name;
+  $("#title").textContent = o.name;
+  const tags = [el("span", {class: "tag" + (o.origin === "found" ? " acc" : ""), text: o.origin}),
+                el("span", {class: "tag " + (STATUS_TAG[o.status] || ""), text: o.status.replace("_", " ")})];
+  if (o.owned) tags.push(el("span", {class: "tag good", text: "owned"}));
+  if (o.include_in_search) tags.push(el("span", {class: "tag", text: "used in matching"}));
+  if (o.confidence != null) tags.push(el("span", {class: "tag", text: `confidence ${(+o.confidence).toFixed(2)}`}));
+  if (o.category) tags.push(el("span", {class: "tag", text: o.category}));
+  tags.push(gripTag(o));
+  fill($("#tags"), ...tags);
+
+  const act = async (label, fn, cls) => el("button", {class: cls, text: label, onclick: async () => {
+    try { const r = await fn(); if (r) render(r); } catch (e) { notice($("#msg"), e.message); } }});
+  Promise.all([
+    o.status === "draft" ? act("Approve identity", () => api(base + "/approve", {method: "POST", json: {what: "identity"}})) : null,
+    o.status !== "verified" && (o.asset_count || o.candidates.length) ?
+      act("Approve model", () => api(base + "/approve", {method: "POST",
+        json: {what: "model", candidate_id: (o.candidates.find(c => c.chosen) || o.candidates[0] || {}).id ?? null}}), "primary") : null,
+    act("Draft with agent", () => api(base + "/draft", {method: "POST"})),
+    o.status !== "rejected" ? act("Reject", async () => { if (!confirm("Reject this object? It is hidden, not deleted.")) return;
+      await api(base, {method: "DELETE"}); return api(base); }, "danger") : null,
+  ]).then(btns => fill($("#actions"), ...btns.filter(Boolean)));
+
+  // photos
+  fill($("#photos"), ...(o.photos.length ? o.photos.map(p => el("figure", {},
+    el("a", {href: dataUrl(p.path), target: "_blank"}, el("img", {src: thumbUrl(p.path), alt: p.kind, loading: "lazy"})),
+    el("figcaption", {}, el("span", {text: `${p.kind} · ${p.source}${o.primary_photo_id === p.id ? " · primary" : ""}`}),
+      p.source === "user" ? el("span", {},
+        o.primary_photo_id !== p.id ? el("button", {class: "small", text: "★", title: "Make primary",
+          onclick: () => api(`${base}/photos/${p.id}/primary`, {method: "POST"}).then(load)}) : null,
+        el("button", {class: "small danger", text: "✕", title: "Remove photo",
+          onclick: () => confirm("Remove this photo?") && api(`${base}/photos/${p.id}`, {method: "DELETE"}).then(load)})) : null)))
+    : [el("div", {class: "empty", text: "No photos yet. Photos of your own item make matching much more reliable."})]));
+
+  // reference images
+  $("#refQ").placeholder = o.ref_query || o.name;
+  fill($("#refs"), ...(o.ref_images.length ? o.ref_images.map(r => el("figure", {class: r.chosen ? "chosen" : null},
+    el("a", {href: dataUrl(r.path), target: "_blank"}, el("img", {src: thumbUrl(r.path), alt: r.title || "", loading: "lazy"})),
+    el("figcaption", {}, credit(r),
+      el("div", {class: "row"},
+        r.chosen ? el("span", {class: "tag good", text: "shown on card"}) :
+          el("button", {class: "small", text: "Use this", onclick: () =>
+            api(`${base}/refimages/${r.id}/choose`, {method: "POST"}).then(render).catch(e => notice($("#msg"), e.message))}),
+        el("button", {class: "small danger", text: "Wrong item", title: "Remove this image", onclick: () =>
+          api(`${base}/refimages/${r.id}`, {method: "DELETE"}).then(render).catch(e => notice($("#msg"), e.message))})))))
+    : [el("div", {class: "empty", text: "No reference images yet. Search below."})]));
+
+  // model
+  const glb = o.glb_path;
+  const chosen = o.candidates.find(c => c.chosen);
+  const mflags = chosen && chosen.scores && chosen.scores.flags || [];
+  if (glb) {
+    if (!viewerLoaded) {
+      viewerLoaded = true;
+      document.head.append(el("script", {type: "module", src: "https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js"}));
+    }
+    const usd = o.assets.find(a => a.kind === "usd"), thumb = [...o.assets].reverse().find(a => a.kind === "thumb");
+    const renders = o.assets.filter(a => a.kind === "thumb");
+    fill($("#model"), el("model-viewer", {src: dataUrl(glb), "camera-controls": true, "auto-rotate": true,
+      "shadow-intensity": "0.6", "exposure": "1.1", "camera-orbit": "35deg 50deg auto", alt: o.name}),
+      renders.length ? el("div", {class: "strip", style: "margin-top:8px"}, renders.map(a => el("figure", {},
+        el("a", {href: dataUrl(a.path), target: "_blank"}, el("img", {src: dataUrl(a.path), alt: "render", loading: "lazy"})),
+        el("figcaption", {}, el("span", {text: a.path.split("/").pop().replace(".png", "").replace("_", " ")}))))) : null,
+      mflags.length ? el("div", {class: "notice err", style: "margin-top:8px", text: "Check this model: " + mflags.join("; ")}) : null,
+      el("div", {class: "row", style: "margin-top:8px;justify-content:space-between"},
+        el("span", {class: "credit"}, usd ? el("a", {href: dataUrl(usd.path), text: "asset.usd"}) : "", " · ",
+          thumb ? el("a", {href: dataUrl(thumb.path), target: "_blank", text: "Blender render"}) : "",
+          chosen ? ` · license: ${chosen.license || "unknown"}` : ""),
+        el("button", {class: "small danger", text: "Remove model", onclick: async () => {
+          if (!confirm("Remove this 3D model from the object?")) return;
+          try { render((await api(base + "/model", {method: "DELETE"})).object); } catch (e) { notice($("#msg"), e.message); } }})));
+  } else {
+    fill($("#model"), el("div", {class: "empty", text: o.thumb_path ? "" :
+      "No normalized model yet. Models are found by the acquire agent (phase 4) or imported from KiCad/LDraw (phase 2)."}),
+      o.thumb_path ? el("img", {src: dataUrl(o.thumb_path), style: "max-width:100%;border-radius:6px"}) : null);
+  }
+
+  // dims
+  const obs = o.sightings.map(s => s.observed_dims_mm).filter(d => Array.isArray(d) && d.length === 3)
+    .map(d => [...d].sort((a, b) => b - a));
+  const sheet = Array.isArray(o.dims_mm) ? [...o.dims_mm].sort((a, b) => b - a) : null;
+  const dimRows = ["longest", "middle", "shortest"].map((n, i) => {
+    const so = obs.length ? stats(obs.map(d => d[i])) : null;
+    const diff = so && sheet ? ((so[0] - sheet[i]) / sheet[i] * 100) : null;
+    return [n, sheet ? sheet[i].toFixed(1) : "—", so ? `${so[0].toFixed(1)} ± ${so[1].toFixed(1)}` : "—",
+            diff == null ? "—" : el("span", {class: Math.abs(diff) > 10 ? "tag warn" : "", text: `${diff > 0 ? "+" : ""}${diff.toFixed(1)}%`})];
+  });
+  fill($("#dims"), table(["axis", "datasheet (mm)", `observed (n=${obs.length})`, "diff"], dimRows),
+    o.dims_source && o.dims_source !== "catalog" ? el("div", {class: o.dims_source === "category_default" ? "notice" : "credit",
+      style: "margin-top:6px", text: `size source: ${o.dims_source.replace("_", " ")}` +
+        (o.dims_source === "category_default" ? " (a typical size; measure it or edit the dims for a better model)" : "")}) : null);
+
+  // physics + datasheets + sim USD
+  const ph = o.physics_final || {}, researched = (o.physics || {}).researched_at;
+  const sheets = o.evidence.filter(e => e.kind === "datasheet" && e.local_path);
+  fill($("#phys"),
+    table(["", ""], [
+      ["mass", `${ph.mass_g} g`, ], ["mass from", ph.mass_source || ""],
+      ["friction (static / dynamic)", `${ph.static_friction} / ${ph.dynamic_friction}`], ["restitution", String(ph.restitution)],
+      ["materials", (ph.materials || []).map(m => `${m.part}: ${m.material}`).join("; ")],
+      ...((o.physics || {}).fragile ? [["fragile", o.physics.fragile]] : []),
+      ["values from", researched ? `${ph.source} · ${fmtTime(researched)}` : "category estimate (not researched yet)"]]),
+    el("div", {style: "margin-top:8px"}, sheets.length ? sheets.map(e => el("div", {},
+      el("a", {href: dataUrl(e.local_path), target: "_blank", text: "📄 " + (e.title || "datasheet")}),
+      el("span", {class: "credit", text: " · "}), link(e.url, "source"))) : el("div", {class: "muted", text: "No datasheet saved."})),
+    el("div", {class: "credit", style: "margin-top:8px"}, o.sim_usd
+      ? el("a", {href: dataUrl(o.sim_usd), text: "sim.usda"})
+      : o.glb_path ? "sim.usda not built yet (python -m objsearch sim " + o.id + ")" : "sim.usda appears once a model exists",
+      o.sim_usd ? " — physics (rigid body, mass, convex-hull colliders, friction) + semantic label " : "",
+      o.sim_usd ? el("code", {text: o.id}) : ""));
+  const btn = $("#docsBtn");
+  btn.disabled = !!o.docs_running;
+  btn.textContent = o.docs_running ? "Researching…" : (researched ? "Research again" : "Research datasheet");
+  btn.onclick = async () => {
+    try { await api(base + "/docs", {method: "POST"}); btn.disabled = true; btn.textContent = "Researching…"; pollDocs(0); }
+    catch (e) { notice($("#msg"), e.message); }
+  };
+  if (o.docs_running) setTimeout(() => pollDocs(0), 4000);
+
+  // sightings
+  fill($("#sightings"), ...(o.sightings.length ? o.sightings.slice(0, 24).map(s => el("figure", {},
+    el("a", {href: `/objects/runs/${encodeURIComponent(s.run_id)}`},
+      s.crop_path ? el("img", {src: dataUrl(s.crop_path), alt: "crop", loading: "lazy"}) : el("div", {class: "empty", text: "no crop"})),
+    el("figcaption", {}, el("span", {text: `${s.match_method || ""} ${s.score != null ? (+s.score).toFixed(2) : ""}`}),
+      el("span", {text: fmtTime(s.started_at)}))))
+    : [el("div", {class: "empty", text: "Not seen in any run yet."})]));
+
+  // form
+  for (const k of ["name", "category", "manufacturer", "mpn", "ldraw_id", "fcc_id", "kicad_model", "notes"])
+    $("#e_" + k).value = o[k] ?? "";
+  ["l", "w", "h"].forEach((k, i) => $("#e_" + k).value = Array.isArray(o.dims_mm) ? o.dims_mm[i] : "");
+  $("#e_aliases").value = (o.aliases || []).join(", ");
+  $("#e_grasp_pose").value = o.grasp_pose || "";
+  const g = o.grasp || {};
+  fill($("#gripInfo"), gripTag(o), g.verdict ? el("span", {class: "credit", text:
+    ` ${g.height_mm} mm tall · ${g.grasp_width_mm} mm across the jaws${g.reasons.length ? " · " + g.reasons.join("; ") : ""}`}) : null);
+  $("#e_colors").value = (o.colors || []).join(", ");
+  $("#e_owned").checked = !!o.owned;
+  $("#e_include_in_search").checked = !!o.include_in_search;
+
+  // candidates / assets / evidence / events
+  fill($("#candidates"), table(["#", "source", "license", "score", ""], o.candidates.map(c => [
+    String(c.rank ?? ""), link(c.source_url, new URL(safeUrl(c.source_url) || "http://x/").hostname + "…"),
+    el("span", {class: /^CC|MIT|Apache|public/i.test(c.license || "") ? "" : "tag warn", text: c.license || "unknown"}),
+    c.scores && c.scores.score != null ? (+c.scores.score).toFixed(2) : "",
+    c.chosen ? el("span", {class: "tag good", text: "chosen"}) :
+      el("button", {class: "small", text: "Choose", onclick: () =>
+        api(base + "/approve", {method: "POST", json: {what: "model", candidate_id: c.id}}).then(render).catch(e => notice($("#msg"), e.message))})])));
+  fill($("#assets"), table(["kind", "file", "license", "source", "tris"], o.assets.map(a => [
+    a.kind, el("a", {href: dataUrl(a.path), text: a.path.split("/").pop()}), a.license || "", a.source_url ? link(a.source_url, a.source_site || "source") : "",
+    a.tri_count != null ? String(a.tri_count) : ""])));
+  fill($("#evidence"), table(["", "kind", "trust"], o.evidence.map(e => [
+    link(e.url, e.title || e.url), e.kind || "", e.trust || ""])));
+  fill($("#events"), table(["when", "who", "what", "change"], o.events.map(e => [
+    fmtTime(e.created_at), e.actor, e.field, el("span", {class: "muted", text:
+      `${e.old != null ? JSON.stringify(e.old) + " → " : ""}${e.new != null ? JSON.stringify(e.new) : ""}${e.reason ? "  (" + e.reason + ")" : ""}`})])));
+  $("#hdrInfo").textContent = o.id;
+}
+
+async function pollDocs(n) {  // research takes ~1 min; re-render when it's done
+  try {
+    const o = await api(base);
+    if (!o.docs_running || n > 60) return render(o);
+  } catch (e) { return; }
+  setTimeout(() => pollDocs(n + 1), 4000);
+}
+
+async function load() {
+  try { render(await api(base)); } catch (e) { notice($("#msg"), e.message); }
+}
+
+const list = s => s.split(",").map(x => x.trim()).filter(Boolean);
+$("#edit").addEventListener("submit", async e => {
+  e.preventDefault();
+  const dims = ["l", "w", "h"].map(k => parseFloat($("#e_" + k).value));
+  const body = {};
+  for (const k of ["name", "category", "manufacturer", "mpn", "ldraw_id", "fcc_id", "kicad_model", "notes"])
+    body[k] = $("#e_" + k).value.trim() || null;
+  body.dims_mm = dims.every(x => x > 0) ? dims : null;
+  body.aliases = list($("#e_aliases").value);
+  body.colors = list($("#e_colors").value);
+  body.grasp_pose = $("#e_grasp_pose").value || null;
+  body.owned = $("#e_owned").checked;
+  body.include_in_search = $("#e_include_in_search").checked;
+  try { render(await api(base, {method: "PATCH", json: body})); $("#saved").textContent = "saved"; setTimeout(() => $("#saved").textContent = "", 2000); }
+  catch (err) { notice($("#msg"), err.message); }
+});
+
+$("#refForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("#refBtn").disabled = true; $("#refBtn").textContent = "Searching…";
+  try {
+    const o = await api(base + "/refimages", {method: "POST", json: {query: $("#refQ").value.trim() || null}});
+    render(o);
+    notice($("#msg"), o.fetched ? `Added ${o.fetched} image(s).` : "No new matching images; try other words.", !o.fetched);
+  } catch (err) { notice($("#msg"), err.message); }
+  finally { $("#refBtn").disabled = false; $("#refBtn").textContent = "Find more images"; }
+});
+
+$("#modelForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const fd = new FormData(), f = $("#mFile").files[0], url = $("#mUrl").value.trim();
+  if (!f && !url) { notice($("#msg"), "Choose a model file or paste a direct link."); return; }
+  if (f) fd.append("file", f); else fd.append("url", url);
+  fd.append("license", $("#mLic").value.trim());
+  fd.append("source_url", $("#mSrc").value.trim());
+  $("#mGo").disabled = true;
+  try {
+    const {run_id} = await api(base + "/model", {method: "POST", body: fd});
+    for (;;) {
+      const r = await api(`/api/runs/${encodeURIComponent(run_id)}`);
+      fill($("#mStatus"), el("div", {class: "steps", style: "margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;font-size:13px"},
+        r.steps.map(s => el("span", {}, el("span", {class: "dot s-" + s.status}), ` ${s.stage}${s.duration_ms != null ? " · " + fmtMs(s.duration_ms) : ""}`))),
+        r.status !== "running" && r.steps.some(s => s.status === "failed") ? el("div", {class: "notice err", style: "margin-top:6px",
+          text: r.steps.filter(s => s.error_msg).map(s => `${s.stage}: ${s.error_msg}`).join(" | ")}) : null);
+      if (r.status !== "running") break;
+      await new Promise(res => setTimeout(res, 1000));
+    }
+    $("#modelForm").reset();
+    load();
+  } catch (err) { notice($("#msg"), err.message); }
+  finally { $("#mGo").disabled = false; }
+});
+
+async function upload(files) {
+  if (!files.length) return;
+  const fd = new FormData();
+  for (const f of files) fd.append("files", f);
+  try {
+    const r = await api(base + "/photos", {method: "POST", body: fd});
+    if (r.errors.length) notice($("#msg"), r.errors.join("; "));
+    load();
+  } catch (e) { notice($("#msg"), e.message); }
+}
+const drop = $("#drop");
+$("#file").addEventListener("change", e => upload(e.target.files));
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files); });
+load();
+</script>
+</body>
+</html>

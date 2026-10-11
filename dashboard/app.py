@@ -15,6 +15,8 @@ import time
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 
+from dashboard.objects import router as objects_router
+
 HOST = os.environ.get("DINO_HOST", "dino-box")
 CODE = "/workspace/dino/code"
 RUNS = "/workspace/dino/runs"
@@ -25,6 +27,7 @@ MEDIA = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".jso
          ".csv": "text/plain", ".txt": "text/plain", ".md": "text/plain", ".yaml": "text/plain", ".log": "text/plain"}
 
 app = FastAPI(title="dino-box dashboard")
+app.include_router(objects_router)  # local objsearch DB: /objects, /api/objects, /api/runs ...
 
 
 class Conn:

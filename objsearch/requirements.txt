@@ -1,0 +1,11 @@
+# objsearch core (local PC, Python 3.13). Later phases add: anthropic, numpy,
+# opencv-python-headless, rapidocr-onnxruntime, transformers, torch (CPU).
+pyyaml
+pillow
+httpx
+google-genai
+pillow-heif
+ddgs
+cascadio
+trimesh
+gmsh

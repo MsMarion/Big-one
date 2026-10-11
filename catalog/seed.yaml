@@ -1,0 +1,177 @@
+# Seed catalog for objsearch. Import with `python -m objsearch db import` (existing ids are skipped).
+# Seed entries start hidden from search (include_in_search: false); mark the ones you own in the
+# dashboard (/objects) and they become origin=given + searchable. dims_mm are approximate datasheet
+# values [length, width, height] incl. headers/pins unless noted; model_hints are unverified pointers
+# for the acquire phase. `python -m objsearch db export` rewrites this file from the DB.
+# Gripper fit (SO-ARM101) is computed from dims_mm: `python -m objsearch grasp`; flat modules, plates
+# and cards stay in the catalog but are hidden from the default "pickable" selection.
+version: 1
+objects:
+# ---------------------------------------------------------------- WiFi/BT modules
+- {id: esp32-wroom-32, ref_query: "ESP32-WROOM-32", name: ESP32-WROOM-32 module, category: module, manufacturer: Espressif, mpn: ESP32-WROOM-32,
+   fcc_id: 2AC7Z-ESPWROOM32, dims_mm: [25.5, 18.0, 3.1], aliases: [ESP-WROOM-32, WROOM-32], colors: [silver, black],
+   model_hints: [{source: kicad, ref: RF_Module.3dshapes/ESP32-WROOM-32, verified: false}],
+   notes: Metal RF shield with printed module name; PCB antenna end., origin: seed}
+- {id: esp32-wroom-32e, ref_query: "ESP32 WROOM module", name: ESP32-WROOM-32E module, category: module, manufacturer: Espressif, mpn: ESP32-WROOM-32E,
+   dims_mm: [25.5, 18.0, 3.1], aliases: [WROOM-32E], colors: [silver, black],
+   model_hints: [{source: espressif-kicad, ref: ESP32-WROOM-32E, verified: false}], origin: seed}
+- {id: esp32-wrover-e, ref_query: "ESP32-WROVER", name: ESP32-WROVER-E module, category: module, manufacturer: Espressif, mpn: ESP32-WROVER-E,
+   dims_mm: [31.4, 18.0, 3.3], aliases: [WROVER-E, ESP32-WROVER], colors: [silver, black],
+   model_hints: [{source: espressif-kicad, ref: ESP32-WROVER-E, verified: false}], origin: seed}
+- {id: esp-01, ref_query: "ESP-01 ESP8266", name: ESP-01 (ESP8266) WiFi module, category: module, manufacturer: Ai-Thinker, mpn: ESP-01,
+   dims_mm: [24.8, 14.3, 11.0], aliases: [ESP8266-01, ESP-01S, esp01], colors: [blue, black],
+   model_hints: [{source: web, ref: kicad-ESP8266 library (jdunmire), verified: false}],
+   notes: 2x4 pin header; height includes header pins., origin: seed}
+- {id: esp-12e, ref_query: "ESP-12E ESP8266", name: ESP-12E (ESP8266) module, category: module, manufacturer: Ai-Thinker, mpn: ESP-12E,
+   dims_mm: [24.0, 16.0, 3.0], aliases: [ESP12E], colors: [silver, black],
+   model_hints: [{source: kicad, ref: RF_Module.3dshapes/ESP-12E, verified: false}], origin: seed}
+- {id: esp-12f, ref_query: "ESP-12F ESP8266", name: ESP-12F (ESP8266) module, category: module, manufacturer: Ai-Thinker, mpn: ESP-12F,
+   fcc_id: 2AHMR-ESP12F, dims_mm: [24.0, 16.0, 3.0], aliases: [ESP12F], colors: [silver, black], origin: seed}
+- {id: esp32-cam, ref_query: "ESP32-CAM", name: ESP32-CAM (AI-Thinker) with OV2640, category: camera, manufacturer: Ai-Thinker,
+   mpn: ESP32-CAM, dims_mm: [40.5, 27.0, 12.0], aliases: [ESP32 CAM, AI Thinker ESP32-CAM], colors: [black, silver],
+   notes: Height includes the camera module; microSD slot on the back., origin: seed}
+# ---------------------------------------------------------------- dev boards
+- {id: esp32-devkitc-v4, ref_query: "ESP32-DevKitC", name: ESP32-DevKitC V4, category: board, manufacturer: Espressif, mpn: ESP32-DevKitC-32E,
+   dims_mm: [54.4, 27.9, 13.0], aliases: [DevKitC, ESP32 DevKit], colors: [black, silver], origin: seed}
+- {id: esp32-devkit-v1-doit, ref_query: "ESP32 DevKit", name: "ESP32 DevKit V1 (DOIT, 30-pin)", category: board, manufacturer: DOIT,
+   dims_mm: [51.5, 28.3, 13.0], aliases: [ESP32 DOIT, ESP32 30 pin], colors: [black, blue], origin: seed}
+- {id: esp32-s3-devkitc-1, ref_query: "ESP32-S3 DevKitC", name: ESP32-S3-DevKitC-1, category: board, manufacturer: Espressif,
+   mpn: ESP32-S3-DevKitC-1, dims_mm: [63.0, 26.0, 13.0], aliases: [ESP32-S3 DevKit], colors: [black, silver], origin: seed}
+- {id: esp32-c3-supermini, ref_query: "ESP32-C3 board", name: ESP32-C3 SuperMini, category: board, dims_mm: [22.5, 18.0, 4.0],
+   aliases: [C3 SuperMini], colors: [blue, black], origin: seed}
+- {id: nodemcu-v3-lolin, ref_query: "NodeMCU ESP8266", name: "NodeMCU V3 (LoLin, CH340)", category: board, manufacturer: LoLin,
+   dims_mm: [58.0, 31.0, 13.0], aliases: [NodeMCU, NodeMCU v3], colors: [black, silver], origin: seed}
+- {id: nodemcu-amica-v2, ref_query: "NodeMCU Amica", name: NodeMCU Amica V2 (CP2102), category: board, manufacturer: Amica,
+   dims_mm: [49.0, 26.0, 13.0], aliases: [NodeMCU v2], colors: [black, silver], origin: seed}
+- {id: wemos-d1-mini, ref_query: "Wemos D1 mini", name: Wemos D1 mini (ESP8266), category: board, manufacturer: WEMOS, mpn: D1 mini,
+   dims_mm: [34.2, 25.6, 7.0], aliases: [D1 mini, LOLIN D1 mini], colors: [blue, silver], origin: seed}
+- {id: arduino-uno-r3, ref_query: "Arduino Uno", name: Arduino Uno R3, category: board, manufacturer: Arduino, mpn: A000066,
+   dims_mm: [68.6, 53.4, 15.0], aliases: [Uno, Arduino Uno], colors: [teal, white],
+   model_hints: [{source: arduino, url: "https://docs.arduino.cc/static/6bb7a3ca51ebee82a252f60c0b418787/A000066-cad-files.zip", license: "CC-BY-SA-4.0 (Arduino UNO Rev3 hardware files)", page: "https://docs.arduino.cc/hardware/uno-rev3/", verified: true}], origin: seed}
+- {id: arduino-nano, ref_query: "Arduino Nano", name: Arduino Nano, category: board, manufacturer: Arduino, mpn: A000005,
+   dims_mm: [45.0, 18.0, 8.0], aliases: [Nano, Arduino Nano V3], colors: [blue, black],
+   model_hints: [{source: kicad, ref: Module.3dshapes/Arduino_Nano, verified: false}], origin: seed}
+- {id: arduino-mega-2560, ref_query: "Arduino Mega 2560", name: Arduino Mega 2560 R3, category: board, manufacturer: Arduino, mpn: A000067,
+   dims_mm: [101.5, 53.3, 15.0], aliases: [Mega 2560], colors: [teal, white], origin: seed}
+- {id: raspberry-pi-pico, ref_query: "Raspberry Pi Pico", name: Raspberry Pi Pico, category: board, manufacturer: Raspberry Pi, mpn: SC0915,
+   dims_mm: [51.0, 21.0, 3.9], aliases: [Pico, RP2040 Pico], colors: [green, white],
+   model_hints: [{source: web, ref: Raspberry Pi official Pico STEP, verified: false}], origin: seed}
+- {id: raspberry-pi-4b, ref_query: "Raspberry Pi 4", name: Raspberry Pi 4 Model B, category: board, manufacturer: Raspberry Pi,
+   dims_mm: [85.6, 56.5, 17.0], aliases: [RPi 4, Pi 4B], colors: [green, silver], origin: seed}
+- {id: raspberry-pi-5, ref_query: "Raspberry Pi 5", name: Raspberry Pi 5, category: board, manufacturer: Raspberry Pi,
+   dims_mm: [85.0, 56.0, 17.0], aliases: [RPi 5, Pi 5], colors: [green, silver], origin: seed}
+# ---------------------------------------------------------------- sensors / actuators / drivers
+- {id: hc-sr04, ref_query: "HC-SR04 ultrasonic sensor", name: HC-SR04 ultrasonic distance sensor, category: sensor, mpn: HC-SR04,
+   dims_mm: [45.0, 20.0, 15.0], aliases: [ultrasonic sensor, sonar module], colors: [blue, silver], origin: seed}
+- {id: mpu6050-gy521, ref_query: "MPU6050 GY-521", name: MPU-6050 IMU breakout (GY-521), category: sensor, mpn: GY-521,
+   dims_mm: [21.2, 16.4, 3.3], aliases: [MPU6050, GY-521], colors: [blue], origin: seed}
+- {id: dht11, ref_query: "DHT11 sensor", name: DHT11 temperature/humidity sensor, category: sensor, mpn: DHT11,
+   dims_mm: [15.5, 12.0, 5.5], aliases: [DHT-11], colors: [blue], notes: Bare sensor; modules are larger., origin: seed}
+- {id: dht22, ref_query: "DHT22 sensor", name: DHT22 / AM2302 temperature/humidity sensor, category: sensor, mpn: AM2302,
+   dims_mm: [25.0, 15.1, 7.7], aliases: [DHT-22, AM2302], colors: [white], origin: seed}
+- {id: hc-sr501, ref_query: "HC-SR501 PIR sensor", name: HC-SR501 PIR motion sensor, category: sensor, mpn: HC-SR501,
+   dims_mm: [32.3, 24.3, 24.5], aliases: [PIR sensor], colors: [white, green], origin: seed}
+- {id: ssd1306-oled-096, ref_query: "SSD1306 OLED display", name: SSD1306 0.96" OLED (I2C), category: sensor, mpn: SSD1306,
+   dims_mm: [27.3, 27.8, 3.7], aliases: [0.96 OLED, OLED display], colors: [blue, black],
+   notes: Display module (category sensor/peripheral)., origin: seed}
+- {id: sg90-servo, ref_query: "SG90 micro servo", name: SG90 micro servo, category: actuator, manufacturer: TowerPro, mpn: SG90,
+   dims_mm: [32.0, 12.2, 31.0], aliases: [9g servo, micro servo], colors: [blue],
+   notes: Length includes mounting tabs; height includes output shaft., origin: seed}
+- {id: 28byj-48, ref_query: "28BYJ-48 stepper motor", name: 28BYJ-48 stepper motor, category: actuator, mpn: 28BYJ-48,
+   dims_mm: [42.0, 28.0, 19.0], aliases: [5V stepper], colors: [silver, blue], origin: seed}
+- {id: uln2003-driver, ref_query: "ULN2003 stepper driver", name: ULN2003 stepper driver board, category: actuator, mpn: ULN2003,
+   dims_mm: [35.0, 32.0, 15.0], aliases: [ULN2003 module], colors: [green], origin: seed}
+- {id: l298n-driver, ref_query: "L298N motor driver", name: L298N dual H-bridge motor driver, category: actuator, mpn: L298N,
+   dims_mm: [43.0, 43.0, 27.0], aliases: [L298N module], colors: [red, black], origin: seed}
+- {id: relay-module-1ch, ref_query: "relay module arduino", name: 1-channel 5V relay module, category: actuator,
+   dims_mm: [50.0, 26.0, 18.5], aliases: [relay module, SRD-05VDC], colors: [blue], origin: seed}
+- {id: tp4056-charger, ref_query: "TP4056 charger module", name: TP4056 Li-ion charger module (USB-C), category: power, mpn: TP4056,
+   dims_mm: [25.8, 17.6, 5.0], aliases: [TP4056], colors: [blue], origin: seed}
+# ---------------------------------------------------------------- cameras
+- {id: ov2640-module, ref_query: "OV2640 camera module", name: OV2640 camera module (24-pin FPC), category: camera, manufacturer: OmniVision, mpn: OV2640,
+   dims_mm: [8.5, 8.5, 6.0], aliases: [OV2640], colors: [black], notes: Lens block only; flex cable ~20 mm extra.,
+   origin: seed}
+- {id: logitech-c270, ref_query: "Logitech C270 webcam", name: Logitech C270 HD webcam, category: camera, manufacturer: Logitech, mpn: 960-000694,
+   dims_mm: [72.9, 31.3, 66.6], aliases: [C270], colors: [black], notes: Height includes the clip., origin: seed}
+- {id: logitech-c920, ref_query: "Logitech C920 webcam", name: Logitech C920 HD Pro webcam, category: camera, manufacturer: Logitech, mpn: 960-000764,
+   dims_mm: [94.0, 29.0, 24.0], aliases: [C920, C920s], colors: [black], notes: "Body only, without clip.", origin: seed}
+- {id: rpi-camera-v2, ref_query: "Raspberry Pi camera module v2", name: Raspberry Pi Camera Module v2, category: camera, manufacturer: Raspberry Pi,
+   dims_mm: [25.0, 23.0, 9.0], aliases: [Pi Cam v2, IMX219 camera], colors: [green], origin: seed}
+- {id: rpi-camera-v3, ref_query: "Raspberry Pi camera module 3", name: Raspberry Pi Camera Module 3, category: camera, manufacturer: Raspberry Pi,
+   dims_mm: [25.0, 24.0, 11.5], aliases: [Pi Cam 3, IMX708 camera], colors: [green], origin: seed}
+# ---------------------------------------------------------------- storage
+- {id: usb-flash-drive-generic, ref_query: "USB flash drive", name: USB-A flash drive (generic stick), category: storage,
+   dims_mm: [55.0, 18.0, 8.0], aliases: [thumb drive, USB stick, pendrive], colors: [black, silver], origin: seed}
+- {id: sandisk-cruzer-blade, ref_query: "SanDisk Cruzer Blade", name: SanDisk Cruzer Blade USB drive, category: storage, manufacturer: SanDisk,
+   mpn: SDCZ50, dims_mm: [41.7, 17.5, 7.3], aliases: [Cruzer Blade], colors: [black, red], origin: seed}
+- {id: sandisk-ultra-fit, ref_query: "SanDisk Ultra Fit", name: SanDisk Ultra Fit USB 3.1 drive, category: storage, manufacturer: SanDisk,
+   mpn: SDCZ430, dims_mm: [29.8, 14.3, 5.0], aliases: [Ultra Fit], colors: [black], origin: seed}
+- {id: kingston-datatraveler-exodia, ref_query: "Kingston DataTraveler", name: Kingston DataTraveler Exodia, category: storage, manufacturer: Kingston,
+   mpn: DTX, dims_mm: [67.3, 21.0, 10.6], aliases: [DataTraveler Exodia], colors: [black], origin: seed}
+- {id: microsd-card, ref_query: "microSD card", name: microSD card, category: storage, dims_mm: [15.0, 11.0, 1.0], aliases: [TF card, micro SD],
+   colors: [black], origin: seed}
+# ---------------------------------------------------------------- LEGO (1 stud = 8 mm pitch; heights include studs)
+- {id: lego-3001, ref_query: "lego brick 2x4", name: LEGO Brick 2 x 4, category: lego, manufacturer: LEGO, ldraw_id: "3001",
+   dims_mm: [31.8, 15.8, 11.4], aliases: [2x4 brick], model_hints: [{source: ldraw, ref: 3001.dat, verified: false}],
+   origin: seed}
+- {id: lego-3003, ref_query: "lego brick 2x2", name: LEGO Brick 2 x 2, category: lego, manufacturer: LEGO, ldraw_id: "3003",
+   dims_mm: [15.8, 15.8, 11.4], aliases: [2x2 brick], model_hints: [{source: ldraw, ref: 3003.dat, verified: false}],
+   origin: seed}
+- {id: lego-3004, ref_query: "lego brick 1x2", name: LEGO Brick 1 x 2, category: lego, manufacturer: LEGO, ldraw_id: "3004",
+   dims_mm: [15.8, 7.8, 11.4], aliases: [1x2 brick], model_hints: [{source: ldraw, ref: 3004.dat, verified: false}],
+   origin: seed}
+- {id: lego-3010, ref_query: "lego brick 1x4", name: LEGO Brick 1 x 4, category: lego, manufacturer: LEGO, ldraw_id: "3010",
+   dims_mm: [31.8, 7.8, 11.4], aliases: [1x4 brick], model_hints: [{source: ldraw, ref: 3010.dat, verified: false}],
+   origin: seed}
+- {id: lego-3020, ref_query: "lego plate 2x4", name: LEGO Plate 2 x 4, category: lego, manufacturer: LEGO, ldraw_id: "3020",
+   dims_mm: [31.8, 15.8, 4.9], aliases: [2x4 plate], model_hints: [{source: ldraw, ref: 3020.dat, verified: false}],
+   origin: seed}
+- {id: lego-3022, ref_query: "lego plate 2x2", name: LEGO Plate 2 x 2, category: lego, manufacturer: LEGO, ldraw_id: "3022",
+   dims_mm: [15.8, 15.8, 4.9], aliases: [2x2 plate], model_hints: [{source: ldraw, ref: 3022.dat, verified: false}],
+   origin: seed}
+- {id: lego-3023, ref_query: "lego plate 1x2", name: LEGO Plate 1 x 2, category: lego, manufacturer: LEGO, ldraw_id: 3023b,
+   dims_mm: [15.8, 7.8, 4.9], aliases: [1x2 plate], model_hints: [{source: ldraw, ref: 3023b.dat, verified: false}],
+   origin: seed}
+- {id: lego-3024, ref_query: "lego plate 1x1", name: LEGO Plate 1 x 1, category: lego, manufacturer: LEGO, ldraw_id: "3024",
+   dims_mm: [7.8, 7.8, 4.9], aliases: [1x1 plate], model_hints: [{source: ldraw, ref: 3024.dat, verified: false}],
+   origin: seed}
+- {id: lego-3039, ref_query: "lego slope 2x2", name: LEGO Slope 45 2 x 2, category: lego, manufacturer: LEGO, ldraw_id: "3039",
+   dims_mm: [15.8, 15.8, 11.4], aliases: [2x2 slope], model_hints: [{source: ldraw, ref: 3039.dat, verified: false}],
+   origin: seed}
+- {id: lego-3062b, ref_query: "lego round brick 1x1", name: LEGO Brick 1 x 1 Round, category: lego, manufacturer: LEGO, ldraw_id: 3062b,
+   dims_mm: [7.8, 7.8, 11.4], aliases: [1x1 round brick], model_hints: [{source: ldraw, ref: 3062b.dat, verified: false}],
+   origin: seed}
+- {id: lego-32523, ref_query: "lego technic liftarm", name: LEGO Technic Beam 1 x 3 Thick, category: lego, manufacturer: LEGO, ldraw_id: "32523",
+   dims_mm: [23.8, 7.8, 7.8], aliases: [technic liftarm 3], model_hints: [{source: ldraw, ref: 32523.dat, verified: false}],
+   origin: seed}
+- {id: lego-2780, ref_query: "lego technic pin", name: LEGO Technic Pin with Friction, category: lego, manufacturer: LEGO, ldraw_id: "2780",
+   dims_mm: [15.8, 6.2, 6.2], aliases: [technic pin, black pin], model_hints: [{source: ldraw, ref: 2780.dat, verified: false}],
+   origin: seed}
+# ---------------------------------------------------------------- gripper-friendly additions (SO-ARM101: >= 1 cm tall, ~1-4.7 cm across)
+- {id: lego-3002, ref_query: "lego brick 2x3", name: LEGO Brick 2 x 3, category: lego, manufacturer: LEGO, ldraw_id: "3002",
+   dims_mm: [23.8, 15.8, 11.4], aliases: [2x3 brick], model_hints: [{source: ldraw, ref: 3002.dat, verified: false}],
+   origin: seed}
+- {id: lego-3941, ref_query: "lego round brick 2x2", name: LEGO Brick 2 x 2 Round, category: lego, manufacturer: LEGO,
+   ldraw_id: "3941", dims_mm: [15.8, 15.8, 11.4], aliases: [2x2 round brick], model_hints: [{source: ldraw, ref: 3941.dat, verified: false}],
+   origin: seed}
+- {id: duplo-3011, ref_query: "duplo brick 2x4", name: DUPLO Brick 2 x 4, category: lego, manufacturer: LEGO, ldraw_id: "3011",
+   dims_mm: [63.5, 31.7, 23.6], aliases: [duplo 2x4], model_hints: [{source: ldraw, ref: 3011.dat, verified: false}],
+   notes: "Big, light, forgiving to grip: good first target for the SO-ARM101. Height approximate (incl. studs).", origin: seed}
+- {id: duplo-3437, ref_query: "duplo brick 2x2", name: DUPLO Brick 2 x 2, category: lego, manufacturer: LEGO, ldraw_id: "3437",
+   dims_mm: [31.7, 31.7, 23.6], aliases: [duplo 2x2], model_hints: [{source: ldraw, ref: 3437.dat, verified: false}],
+   notes: Height approximate (incl. studs)., origin: seed}
+- {id: raspberry-pi-pico-h, ref_query: "Raspberry Pi Pico H", name: Raspberry Pi Pico H (with headers), category: board,
+   manufacturer: Raspberry Pi, mpn: SC0917, dims_mm: [51.0, 21.0, 12.5], aliases: [Pico H, Pico with headers],
+   colors: [green, white], notes: Pre-soldered headers make it tall enough to grip; height approximate., origin: seed}
+- {id: ky-023-joystick, ref_query: "joystick module arduino", name: KY-023 joystick module, category: sensor,
+   mpn: KY-023, dims_mm: [40.0, 26.0, 32.0], aliases: [thumb joystick, KY023, PS2 joystick module], colors: [black, blue],
+   notes: Height approximate (incl. stick)., origin: seed}
+# ---------------------------------------------------------------- prototyping / power
+- {id: breadboard-400, ref_query: "half size breadboard", name: Half-size breadboard (400 points), category: prototyping,
+   dims_mm: [82.5, 55.0, 8.5], aliases: [half breadboard, 400 tie-point], colors: [white], origin: seed}
+- {id: breadboard-830, ref_query: "830 point breadboard", name: Full-size breadboard (830 points), category: prototyping,
+   dims_mm: [165.1, 54.6, 8.5], aliases: [full breadboard, 830 tie-point], colors: [white], origin: seed}
+- {id: battery-9v, ref_query: "9 volt battery", name: 9V battery (PP3), category: power, dims_mm: [48.5, 26.5, 17.5], aliases: [PP3, 6LR61],
+   origin: seed}
+- {id: cell-18650, ref_query: "18650 lithium battery", name: 18650 Li-ion cell, category: power, dims_mm: [65.0, 18.0, 18.0], aliases: ["18650"],
+   origin: seed}

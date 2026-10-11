@@ -1,0 +1,104 @@
+# Reconstructed board for the InnoMaker U20CAM-1080P-1 (OEM PCB "WS-1080P-V1.0"); built by objsearch/boardgen.py.
+# Real sources first; every value says where it came from:
+#   manual    = InnoMaker U20CAM-1080P-S1 UserManual v1.1 (github.com/INNO-MAKER/U20CAM-1080P-S1), page noted
+#   manual-photo = positions scaled from the manual's p.5 board photo (32 mm = 296 px; about +-0.5 mm)
+#   your-photo   = the user's own photo of their board (markings differ from the manual's board)
+# Coordinates: mm, origin = board centre, x right, y down, orientation as in the manual p.5 photo (LDR at top).
+id: u20cam-1080p-1-usb-camera-module
+title: U20CAM-1080P-1 (WS-1080P-V1.0 PCB)
+license: >-
+  replica (objsearch boardgen) from the InnoMaker manual + product photos; parts: lens holder Apache-2.0
+  (osrf/osrf_hw), M12 lens CC-BY-SA-4.0 (FreeCAD parts library fork), connector/ICs/passives CC-BY-SA-4.0 (KiCad library)
+flag: >-
+  KiCad replica: front (32x32 mm, holes, pads, markings) from the InnoMaker manual + your photo; back parts from
+  InnoMaker's product photo, perspective-corrected (+-1 mm), packages by appearance - exact part numbers unknown
+board:
+  size: [32, 32]              # manual p.3: PCBA size 32*32 mm
+  thickness: 1.6              # standard 2-layer FR4 (manual p.3: 2 layers; thickness not stated)
+  mask: black                 # manual p.1/p.5 photos + your-photo
+  silk: white                 # manual photos + your-photo
+  finish: ENIG                # gold pads/holes: manual photos + your-photo
+holes:                        # manual p.3: 4 mounting holes, 2.2 mm; positions manual-photo
+  drill: 2.2
+  pad: 3.8
+  at: [[-13.9, -13.9], [13.9, -13.9], [-13.9, 13.9], [13.9, 13.9]]
+parts:
+  - ref: J1
+    name: M12 lens holder (PT-LH010M)
+    footprint: {url: "https://raw.githubusercontent.com/osrf/osrf_hw/HEAD/kicad_modules/LensHolder.pretty/LENS_HOLDER_20MM_PT-LH010M.kicad_mod"}
+    at: [0, 0, 0]             # lens centred: manual-photo
+    models:
+      - url: "https://raw.githubusercontent.com/osrf/osrf_hw/HEAD/kicad_modules/LensHolder.pretty/PT-LH010M.step"
+        license: Apache-2.0 (osrf/osrf_hw)
+        rotate: [0, 0, 90]
+        tint: "#141414"       # model has no colour; black per InnoMaker's renders (manual p.1, p.6)
+      - url: "https://raw.githubusercontent.com/sisul01/FreeCAD-parts_library/HEAD/electronic_parts/assembled_circuits/M12%20Lens.step"
+        license: CC-BY-SA-4.0 (sisul01/FreeCAD-parts_library)
+        offset: [0, 0, 11.2]  # lens top at 26.8 mm overall (U20CAM-9281M STEP, same M12 family); keeps its own colour
+    notes: "model holder has 20 mm screw spacing; the real one is 18 mm (manual; back photo measures 17.3 +- 0.8) - screws are placed at the real 18 mm"
+  # (no connector on the front: none of InnoMaker's 7 product photos shows one there - it is on the back)
+# Back side, read from InnoMaker's product photo of the back (Newegg listing 1EF-023U-000D9, image ...40UDHEE),
+# perspective-corrected with a homography on the 4 mounting holes. at_photo = position in that rectified view
+# (front-view coordinates, mm); calibration below maps it to the board (fitted on the 12 LED pads: residual 0.8 mm).
+# Packages are KiCad library parts chosen by what the photo shows; markings are unreadable, so part numbers aren't known.
+back_calibration: {scale: 1.0144, offset: [-0.025, -0.108], residual_mm: 0.8,
+                   source: "InnoMaker product photo of the back + homography on the 4 mounting holes"}
+back_parts:
+  - {ref: J2, name: "USB cable connector, JST PH 2.0 mm 5-pin side-entry (pitch + body width measured)",
+     kicad: "Connector_JST:JST_PH_S5B-PH-K_1x05_P2.00mm_Horizontal", rot: 0,
+     # its 5 through-hole pins ARE the front "VMPGG" solder joints: pin row between the back-photo reading
+     # (y 12.2) and the front-photo reading (y 13.4); pin 1 = G at the right, V at the left
+     at_board: [-1.3, 12.8], at_photo: [-1.14, 12.2]}
+  - {ref: U1, name: "USB bridge (TSSOP-20 class)", kicad: "Package_SO:TSSOP-20_4.4x6.5mm_P0.65mm", at_photo: [3.1, 6.0], rot: 0}
+  - {ref: U2, name: "SPI flash (SOP-8)", kicad: "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm", at_photo: [8.75, 9.25], rot: 90}
+  - {ref: U3, name: "regulator (SOT-23-5)", kicad: "Package_TO_SOT_SMD:SOT-23-5", at_photo: [-6.75, 6.75], rot: 0}
+  - {ref: Q1, name: "SOT-23", kicad: "Package_TO_SOT_SMD:SOT-23", at_photo: [-8.0, -5.75], rot: 90}
+  - {ref: Q2, name: "SOT-23", kicad: "Package_TO_SOT_SMD:SOT-23", at_photo: [-4.25, -5.75], rot: 90}
+  - {ref: Q3, name: "SOT-23", kicad: "Package_TO_SOT_SMD:SOT-23", at_photo: [7.75, -7.75], rot: 0}
+  - {ref: SC1, name: "lens-holder screw (M2 pan head)", generated: screw_head, at_photo: [-9.0, 0.0]}
+  - {ref: SC2, name: "lens-holder screw (M2 pan head)", generated: screw_head, at_photo: [9.0, 0.0]}
+  # passives: capacitors (tan bodies) 0603, resistors (black) 0402; orientation h = 0, v = 90
+  - {ref: C1, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-9.1, -4.25], rot: 0}
+  - {ref: C2, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-5.15, -4.1], rot: 0}
+  - {ref: C3, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [5.0, -4.5], rot: 90}
+  - {ref: C4, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [6.25, -3.75], rot: 90}
+  - {ref: C5, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [4.5, -10.0], rot: 90}
+  - {ref: C6, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [10.4, -10.0], rot: 90}
+  - {ref: C7, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-10.0, 6.25], rot: 90}
+  - {ref: C8, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-10.0, 8.5], rot: 90}
+  - {ref: C9, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-4.0, 6.5], rot: 90}
+  - {ref: C10, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-0.5, 6.0], rot: 0}
+  - {ref: C11, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-0.5, 7.25], rot: 0}
+  - {ref: C12, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [4.25, 11.5], rot: 0}
+  - {ref: C13, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [8.0, 13.5], rot: 90}
+  - {ref: C14, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [9.25, 13.5], rot: 90}
+  - {ref: C15, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [12.5, 8.75], rot: 90}
+  - {ref: C16, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-5.4, -12.6], rot: 90}
+  - {ref: C17, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [-2.6, -12.6], rot: 90}
+  - {ref: R1, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [-2.25, -2.15], rot: 0}
+  - {ref: R2, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [4.25, 0.75], rot: 90}
+  - {ref: R3, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [-0.5, -10.75], rot: 90}
+  - {ref: R4, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [0.75, -10.75], rot: 90}
+  - {ref: R5, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [2.0, -10.75], rot: 90}
+  - {ref: R6, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [6.6, 3.3], rot: 0}
+  - {ref: R7, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [6.6, 4.5], rot: 0}
+  - {ref: R8, kicad: "Resistor_SMD:R_0402_1005Metric", at_photo: [4.85, -13.75], rot: 0}
+  # (two 'parts' seen by the top edge were the LDR's through-hole pads from behind: not parts)
+dnp_pads:                     # reserved, unpopulated (manual p.5): copper only, no parts
+  - {name: LDR, pads: [[-1.27, -13.4, circle], [1.27, -13.4, rect]], size: 1.4, drill: 0.8, ring: [0, -13.4, 2.0], plus: [2.9, -13.4]}
+  - {name: LED1, pads: [[-13.6, -6.37, circle], [-13.6, -3.83, rect]], size: 1.4, drill: 0.8, ring: [-13.6, -5.1, 2.1], plus: [-15.2, -3.8]}
+  - {name: LED2, pads: [[-13.6, -1.47, circle], [-13.6, 1.07, rect]], size: 1.4, drill: 0.8, ring: [-13.6, -0.2, 2.1], plus: [-15.2, 1.1]}
+  - {name: LED3, pads: [[-13.6, 3.73, circle], [-13.6, 6.27, rect]], size: 1.4, drill: 0.8, ring: [-13.6, 5.0, 2.1], plus: [-15.2, 6.3]}
+  - {name: LED4, pads: [[13.6, -6.37, circle], [13.6, -3.83, rect]], size: 1.4, drill: 0.8, ring: [13.6, -5.1, 2.1], plus: [15.2, -3.8]}
+  - {name: LED5, pads: [[13.6, -1.47, circle], [13.6, 1.07, rect]], size: 1.4, drill: 0.8, ring: [13.6, -0.2, 2.1], plus: [15.2, 1.1]}
+  - {name: LED6, pads: [[13.6, 3.73, circle], [13.6, 6.27, rect]], size: 1.4, drill: 0.8, ring: [13.6, 5.0, 2.1], plus: [15.2, 6.3]}
+smd_pads:                     # "VMPGG" = the connector's pins (USB V/D-/D+/GND/GND): labels only, pads come from J2
+  pads: false
+  at: [[-9.3, 12.8], [-7.3, 12.8], [-5.3, 12.8], [-3.3, 12.8], [-1.3, 12.8]]
+  labels: ["V", "M", "P", "G", "G"]
+  label_y: 10.9
+silk:
+  rects: [[[-7.4, -8.6], [7.8, 8.8]]]          # outline around the lens-holder base: manual-photo + your-photo
+  texts:
+    - {text: "U20CAM-1080P-1", at: [9.7, -8.7, 270], size: 0.75}  # your-photo: beside the holder, tab -> LDR edge (manual board says WS-1080P-V1.0)
+not_modelled: "exact back-side part numbers (markings unreadable in the photo); small empty pad groups on the back"

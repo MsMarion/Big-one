@@ -1,0 +1,78 @@
+# Two-sided replica of the GMT020-02-8P 2.0" ST7789V TFT module (AITRIP listing B0GL1SWYP4); objsearch/boardgen.py.
+# Sources (real first):
+#   step      = niektb "GMT020-02 TFT SPI 240x320.STEP" (SolidWorks; the 7-pin sibling, same board) - CC-BY-SA-4.0
+#   fp_8p     = hnz1102/ssh-serial-bridge footprint "...GMT020-02-8P.kicad_mod" (exact 8-pin variant)
+#   fp_7p     = niektb footprint GMT020-02.kicad_mod (cross-check: same holes / header row / panel outline)
+#   front_ph  = seller front photo, back_ph = seller back photo (Amazon image 81EeVnuc1jL), both perspective-corrected
+#               on the 4 mounting holes (holes/edges/header agree with the footprints to ~0.3 mm)
+# Frame: mm, origin = board centre, X along the long side with the header at +X, Y down (front view). Pin 1 = GND.
+id: gmt020-02-8p-tft-2in
+title: GMT020-02-8P 2.0" IPS TFT (ST7789V, 240x320, SPI)
+license: >-
+  replica (objsearch boardgen) from: niektb GMT020-02 STEP (CC-BY-SA-4.0; display solids), hnz1102 + niektb
+  footprints (no licence file / CC-BY-SA-4.0; positions only), KiCad library parts (CC-BY-SA-4.0)
+flag: >-
+  KiCad replica of your exact 8-pin board: outline 62x37.25x1.2 (STEP), holes + header (8P footprint), display
+  bezel/border/screen from the real STEP; back parts + silkscreen read from the seller's back photo (+-0.3 mm,
+  packages by appearance, markings unreadable except '103' resistors); flex cable and glass ledge reconstructed
+  from the seller's front photo
+board:
+  size: [62.0, 37.25]         # step PCB solid (fp_8p silk outline 62.0 x 37.2, fp_7p 37.24 x 62.0)
+  thickness: 1.2              # step PCB solid
+  mask: blue                  # front_ph / back_ph
+  silk: white
+  finish: HASL                # pads look silver/tin in back_ph
+holes:                        # fp_8p + fp_7p: 2.5 mm unplated, 58 x 28 mm apart (white in both photos = no plating)
+  drill: 2.5
+  pad: 0                      # 0 = non-plated hole
+  at: [[-29, -14], [29, -14], [-29, 14], [29, 14]]
+header:                       # fp_8p: 8 x 1.0 mm drill, 1.7 mm pads, 2.54 mm pitch, 2.8 mm from the edge; pin 1 GND square
+  state: loose                # loose = as shipped (header in the bag) | soldered = KiCad pin header on the back, pins down
+  pin1: [28.2, -8.89]
+  pitch: 2.54
+  pins: 8
+  kicad_soldered: "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical"
+overlay:                      # real display solids from the STEP, aligned by the STEP's own PCB outline
+  url: "https://raw.githubusercontent.com/niektb/sluisbrinkie-eurorack-published/HEAD/Sluisbrinkie%20Braun/Hardware/PI_SCOPE/STEP/GMT020-02%20TFT%20SPI%20240x320.STEP"
+  align_part: [62.0, 37.25, 1.2]   # the STEP's PCB (not merged: KiCad builds the board)
+  keep:
+    - {size: [51.2, 35.7, 2.7], label: bezel / backlight frame, hex: "#D3D5D8", metallic: 0.6, roughness: 0.35,
+       why: "silver-white frame in front_ph (STEP's grey is the author's default)"}
+    - {size: [43.5, 33.6, 0.1], label: black border, hex: "#050505", roughness: 0.1, why: "STEP colour, matches front_ph"}
+    - {size: [40.8, 30.6, 0.0], label: screen (off), hex: "#0B0C0E", roughness: 0.06, why: "black glass, front_ph"}
+  # not used from the STEP: its 7-pin header + pins (this board has 8 pins) and its flex block (wrong side per photos)
+extras:                       # reconstructed thin parts (mm, board frame, z from the board's top surface)
+  - {label: glass ledge (FPC bond area), box: [-23.0, -19.35, -16.4, 16.0, 2.7, 2.8], hex: "#08090A", roughness: 0.1,
+     why: "front_ph: black glass from X -23 to the border"}
+  - {label: flex cable (on the frame top), box: [-25.8, -23.0, -9.75, 9.75, 2.7, 2.8], hex: "#C46A26", roughness: 0.4,
+     why: "front_ph: orange FPC lies on the frame from X -26.5 to -23, 19.5 mm wide"}
+  - {label: flex cable (over the frame edge), box: [-26.0, -25.8, -9.75, 9.75, 0.0, 2.8], hex: "#C46A26", roughness: 0.4,
+     why: "front_ph: wraps over the frame end"}
+  - {label: flex cable (on the board), box: [-26.6, -26.0, -9.75, 9.75, 0.0, 0.1], hex: "#C46A26", roughness: 0.4,
+     why: "front_ph: visible from X -26.5"}
+back_calibration: {scale: 1.0, offset: [0, 0], residual_mm: 0.3, source: "back_ph rectified on the 4 holes (X scaled 1.01)"}
+back_parts:                   # back_ph positions (already scaled), packages by appearance
+  - {ref: Q1, name: "regulator (SOT-89-3)", kicad: "Package_TO_SOT_SMD:SOT-89-3", at_photo: [3.28, -5.5], rot: 0}   # tab -X, leads +X (back_ph)
+  - {ref: C1, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [2.52, -9.1], rot: 0}
+  - {ref: C2, kicad: "Capacitor_SMD:C_0603_1608Metric", at_photo: [2.52, 8.9], rot: 0}
+  - {ref: R3, name: "10k (103)", kicad: "Resistor_SMD:R_0603_1608Metric", at_photo: [2.52, -1.25], rot: 0}
+  - {ref: R2, name: "10k (103)", kicad: "Resistor_SMD:R_0603_1608Metric", at_photo: [2.52, 0.5], rot: 0}
+  - {ref: R1, name: "10k (103)", kicad: "Resistor_SMD:R_0603_1608Metric", at_photo: [2.52, 2.4], rot: 0}
+  - {ref: R5, name: "10k (103)", kicad: "Resistor_SMD:R_0603_1608Metric", at_photo: [2.52, 4.35], rot: 0}
+  - {ref: R4, name: "10k (103)", kicad: "Resistor_SMD:R_0603_1608Metric", at_photo: [2.52, 6.1], rot: 0}
+  - {ref: D5, kicad: "Diode_SMD:D_SOD-323", at_photo: [9.32, -1.0], rot: 0}
+  - {ref: D4, kicad: "Diode_SMD:D_SOD-323", at_photo: [9.32, 0.75], rot: 0}
+  - {ref: D3, kicad: "Diode_SMD:D_SOD-323", at_photo: [9.32, 2.6], rot: 0}
+  - {ref: D2, kicad: "Diode_SMD:D_SOD-323", at_photo: [9.32, 4.4], rot: 0}
+  - {ref: D1, kicad: "Diode_SMD:D_SOD-323", at_photo: [9.32, 6.1], rot: 0}
+  - {ref: R6, kicad: "Resistor_SMD:R_0603_1608Metric", at_photo: [1.52, 13.5], rot: 90}
+  - {ref: Q2, name: "SOT-23", kicad: "Package_TO_SOT_SMD:SOT-23", at_photo: [5.17, 13.6], rot: 0}   # 1 lead -X, 2 leads +X (back_ph)
+  - {ref: R7, kicad: "Resistor_SMD:R_0603_1608Metric", at_photo: [9.7, 13.5], rot: 90}
+back_silk:                    # back_ph (B.SilkS; KiCad mirrors bottom text)
+  texts:
+    - {text: "GMT020-02-8P", at: [-17.07, 0.0, 270], size: 2.2}
+    - {text: "2.0TFTSPI", at: [-9.07, 0.75, 270], size: 2.2}
+    - {text: "VER:1.21", at: [-20.2, 6.5, 270], size: 1.5}
+    - {text: "SPI", at: [26.66, 12.0, 270], size: 1.2}
+  pin_labels: {x: 24.24, size: 1.4, labels: ["GND", "VCC", "SCL", "SDA", "RST", "DC", "CS", "BL"]}
+  rects: [[[26.9, -10.25], [29.7, 10.15]]]

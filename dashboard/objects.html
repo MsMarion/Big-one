@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Objects</title>
+<link rel="stylesheet" href="/objects-static/objects.css">
+<script src="/objects-static/objects.js"></script>
+</head>
+<body>
+<main>
+  <section class="tiles" id="tiles"></section>
+  <section class="card">
+    <div class="toolbar">
+      <div class="tabs" id="tabs"></div>
+      <input type="search" id="q" placeholder="Search name, alias, MPN, maker…" aria-label="Search objects">
+      <a class="btn" href="/objects/check" style="margin-left:auto" title="Go through the catalog with big pictures: do you have it?">Check my collection</a>
+      <button class="primary" id="addBtn">+ Add item</button>
+      <a class="btn" href="#" id="galleryHint" title="python -m objsearch gallery">Static gallery</a>
+    </div>
+    <div class="chips" id="grips" style="margin-top:10px;align-items:center"></div>
+    <div class="chips" id="chips" style="margin-top:8px"></div>
+  </section>
+  <section id="msg"></section>
+  <section class="grid" id="grid"></section>
+</main>
+
+<dialog id="addDlg">
+  <form id="addForm" method="dialog" class="form">
+    <h2 style="grid-column:1/-1;margin:0 0 4px;font-size:15px">Add an item from your collection</h2>
+    <label for="fName">Name</label><input id="fName" required placeholder="e.g. ESP32 DevKit with OLED">
+    <label for="fCat">Category</label>
+    <select id="fCat">
+      <option>module</option><option>board</option><option>sensor</option><option>actuator</option>
+      <option>camera</option><option>storage</option><option>lego</option><option>power</option>
+      <option>prototyping</option><option selected>other</option>
+    </select>
+    <label>Size (mm)</label>
+    <div class="dims"><input id="fL" type="number" step="0.1" min="0" placeholder="L" aria-label="length mm">
+      <input id="fW" type="number" step="0.1" min="0" placeholder="W" aria-label="width mm">
+      <input id="fH" type="number" step="0.1" min="0" placeholder="H" aria-label="height mm"></div>
+    <label for="fPhotos">Photos</label><input id="fPhotos" type="file" accept="image/*" multiple>
+    <label for="fNotes">Notes</label><textarea id="fNotes" placeholder="markings, where it came from…"></textarea>
+    <div class="row" style="grid-column:1/-1;justify-content:flex-end">
+      <button type="button" id="addCancel">Cancel</button>
+      <button type="submit" class="primary" id="addSubmit">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+navHeader("objects");
+const FILTERS = [["", "All"], ["given", "Given"], ["found", "Found"], ["owned", "Owned"], ["unchecked", "Not checked yet"],
+                 ["needs_review", "Needs review"], ["no_model", "No model"], ["no_photo", "No photo"], ["seed", "Seed"],
+                 ["verified", "Verified"]];
+const qs = new URLSearchParams(location.search);
+const st = {flag: qs.get("flag") || "", category: "", q: "", grip: qs.get("grip") ?? "ok"};
+const GRIPS = [["", "any"], ["ok", "pickable"], ["good", "good"], ["borderline", "borderline"], ["no", "can't pick"]];
+
+function tile(v, label, flag) {
+  return el("div", {class: "card tile", style: flag != null ? "cursor:pointer" : null,
+                    onclick: flag != null ? () => { st.flag = flag; load(); } : null},
+    el("div", {class: "v", text: v}), el("div", {class: "s", text: label}));
+}
+
+function card(o) {
+  const tags = [el("span", {class: "tag" + (o.origin === "found" ? " acc" : ""), text: o.origin}),
+                el("span", {class: "tag " + (STATUS_TAG[o.status] || ""), text: o.status.replace("_", " ")})];
+  tags.push(gripTag(o));
+  if (o.owned) tags.push(el("span", {class: "tag good", text: "owned"}));
+  if (!o.photo_count) tags.push(el("span", {class: "tag warn", text: "no photo"}));
+  if (!o.asset_count) tags.push(el("span", {class: "tag warn", text: "no model"}));
+  else tags.push(modelTag(o));
+  if (o.sighting_count) tags.push(el("span", {class: "tag", text: `seen ${o.sighting_count}×`}));
+  const ids = [o.mpn, o.ldraw_id && "LDraw " + o.ldraw_id, o.fcc_id && "FCC " + o.fcc_id].filter(Boolean).join(" · ");
+  const own = el("button", {class: "small" + (o.owned ? " on" : ""), text: o.owned ? "✓ owned" : "I own this",
+    title: o.owned ? "Unmark as owned" : "Mark as part of your collection (makes it searchable)",
+    onclick: async e => {
+      e.preventDefault(); e.stopPropagation();
+      try { await api(`/api/objects/${encodeURIComponent(o.id)}`, {method: "PATCH", json: {owned: !o.owned}}); load(); }
+      catch (err) { notice($("#msg"), err.message); }
+    }});
+  return el("a", {class: "ocard", href: `/objects/${encodeURIComponent(o.id)}`},
+    o.thumb_path ? el("div", {class: "imgs"}, photoOrRef(o), img(dataUrl(o.thumb_path), "no model"))
+                 : el("div", {class: "imgs one"}, photoOrRef(o)),  // no model yet: give the picture the full width
+    el("div", {class: "obody"},
+      el("div", {class: "oname", text: o.name}),
+      el("div", {class: "ometa", text: fmtDims(o.dims_mm) + (ids ? " · " + ids : "")}),
+      el("div", {class: "tags"}, tags)),
+    el("div", {class: "ofoot"}, el("span", {class: "muted", style: "font-size:12px", text: o.category || ""}), own));
+}
+
+let seq = 0;
+async function load() {
+  const my = ++seq;
+  const p = new URLSearchParams();
+  if (st.flag) p.set("flag", st.flag);
+  if (st.category) p.set("category", st.category);
+  if (st.q) p.set("q", st.q);
+  if (st.grip) p.set("grip", st.grip);
+  const u = new URLSearchParams();
+  if (st.flag) u.set("flag", st.flag);
+  if (st.grip !== "ok") u.set("grip", st.grip);
+  history.replaceState(null, "", u.toString() ? `?${u}` : location.pathname);
+  let d;
+  try { d = await api("/api/objects?" + p); } catch (e) { notice($("#msg"), e.message); return; }
+  if (my !== seq) return;
+  const s = d.summary;
+  fill($("#tiles"), tile(s.all, "objects", ""), tile(s.given, "given (your collection)", "given"),
+    tile(s.found, "found by agent", "found"), tile(s.owned, "owned", "owned"),
+    tile(s.needs_review, "need review", "needs_review"), tile(s.no_model, "without 3D model", "no_model"),
+    tile(s.grip.good + s.grip.borderline, "gripper can pick", null),
+    tile(s.no_photo, "without your photo", "no_photo"), tile(s.unchecked, "not checked yet", "unchecked"),
+    tile(s.sightings, "sightings in runs", null));
+  const gl = s.gripper;
+  fill($("#grips"), el("span", {class: "muted", style: "font-size:12px", title:
+      `SO-ARM101 limits (configs/objsearch.yaml): >= ${gl.min_height_mm} mm tall, ${gl.min_width_mm}-${gl.max_open_mm - gl.clearance_mm} mm across the jaws (jaws open ~${gl.max_open_mm} mm, estimate)`,
+      text: "Gripper:"}),
+    ...GRIPS.map(([g, label]) => el("span", {class: "chip" + (st.grip === g ? " on" : ""),
+      text: g === "" ? label : `${label} ${g === "ok" ? s.grip.good + s.grip.borderline : s.grip[g]}`,
+      onclick: () => { st.grip = g; load(); }})));
+  fill($("#tabs"), ...FILTERS.map(([f, label]) =>
+    el("button", {class: st.flag === f ? "on" : null, text: label, onclick: () => { st.flag = f; load(); }})));
+  fill($("#chips"), 
+    el("span", {class: "chip" + (st.category ? "" : " on"), text: "all categories", onclick: () => { st.category = ""; load(); }}),
+    ...s.categories.map(c => el("span", {class: "chip" + (st.category === c.category ? " on" : ""),
+      text: `${c.category || "uncategorized"} ${c.n}`, onclick: () => { st.category = c.category; load(); }})));
+  fill($("#grid"), ...(d.objects.length ? d.objects.map(card)
+    : [el("div", {class: "empty", text: s.all ? "No objects match." :
+        "The catalog is empty. Run `python -m objsearch db import` to load the seed list, or add an item."})]));
+  $("#hdrInfo").textContent = `${d.objects.length} shown`;
+}
+
+let qt;
+$("#q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { st.q = e.target.value.trim(); load(); }, 200); });
+$("#galleryHint").addEventListener("click", e => { e.preventDefault();
+  notice($("#msg"), "Static gallery: run `python -m objsearch gallery` → objsearch_data/gallery.html (self-contained, shareable).", false); });
+
+const dlg = $("#addDlg");
+$("#addBtn").onclick = () => { $("#addForm").reset(); dlg.showModal(); };
+$("#addCancel").onclick = () => dlg.close();
+$("#addForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const dims = ["#fL", "#fW", "#fH"].map(s => parseFloat($(s).value));
+  const body = {name: $("#fName").value.trim(), category: $("#fCat").value, notes: $("#fNotes").value.trim() || null,
+                origin: "given", owned: true, include_in_search: true};
+  if (dims.every(x => x > 0)) body.dims_mm = dims;
+  $("#addSubmit").disabled = true;
+  try {
+    const o = await api("/api/objects", {method: "POST", json: body});
+    const files = $("#fPhotos").files;
+    if (files.length) {
+      const fd = new FormData();
+      for (const f of files) fd.append("files", f);
+      await api(`/api/objects/${encodeURIComponent(o.id)}/photos`, {method: "POST", body: fd});
+    }
+    location.href = `/objects/${encodeURIComponent(o.id)}`;
+  } catch (err) { dlg.close(); notice($("#msg"), err.message); }
+  finally { $("#addSubmit").disabled = false; }
+});
+load();
+</script>
+</body>
+</html>
